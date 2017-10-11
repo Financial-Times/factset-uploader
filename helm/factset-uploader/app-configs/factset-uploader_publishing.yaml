@@ -1,0 +1,12 @@
+# Values used for the deployed application.
+service:
+  name: factset-uploader
+env:
+  FACTSET_FTP: fts-sftp.factset.com
+  LOG_LEVEL: info
+storage:
+  region: eu-west-1
+  zone: eu-west-1b
+  capacity: 5Gi
+  fsType: ext4
+  volumeID: vol-0e76ab5254e6616c8
