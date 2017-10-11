@@ -16,5 +16,5 @@
 .glide/
 
 vendor/*/
-/smartlogic-concept-transformer
+/factset-uploader
 .idea*
