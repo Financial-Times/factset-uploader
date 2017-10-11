@@ -44,7 +44,6 @@ Options:
 
         --app-system-code="factset-uploader"   System Code of the application ($APP_SYSTEM_CODE)
         --app-name="factset-uploader"               Application name ($APP_NAME)
-        --port="8080"                               Port to listen on ($APP_PORT)
         --awsAccessKey=xxx
         --awsSecretKey=xxx
         --bucketName=com.ft.coco-factset-data
