@@ -6,7 +6,7 @@ service:
   hasHealthcheck: "true"
 replicaCount: 1
 image:
-  repository: coco/factset-reader
+  repository: coco/factset-uploader
   pullPolicy: IfNotPresent
 resources:
   limits:
