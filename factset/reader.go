@@ -25,15 +25,6 @@ func NewReader(config sftpConfig) (FReader, error) {
 	return &Reader{client: fc}, err
 }
 
-
-
-
-
-
-
-
-
-
 type FReader interface {
 	Read(fRes factsetResource, dest string, isWeekly bool) ([]zipCollection, error)
 	Close()
