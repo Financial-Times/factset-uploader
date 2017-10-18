@@ -36,9 +36,10 @@ type PackageVersion struct {
 }
 
 type Package struct {
-	Dataset   string
-	FSPackage string
-	Product   string
+	Dataset     string
+	FSPackage   string
+	Product     string
+	FeedVersion int
 }
 
 type PackageMetadata struct {
@@ -47,4 +48,11 @@ type PackageMetadata struct {
 	SchemaLoadedDate  time.Time
 	PackageVersion    PackageVersion
 	PackageLoadedDate time.Time
+}
+
+type FSFile struct {
+	Name    string
+	Path    string
+	Version PackageVersion
+	IsFull  bool
 }

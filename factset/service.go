@@ -1,14 +1,19 @@
 package factset
 
 import (
+	"errors"
 	"fmt"
-
 	"os"
 	"strconv"
-
-	"github.com/golang/go/src/pkg/strings"
-	"github.com/pkg/errors"
+	"strings"
 )
+
+type Servicer interface {
+	GetSchemaInfo(pkg Package) (*PackageVersion, error)
+	GetFileList(pkg Package, startVersion *PackageVersion) ([]FSFile, error)
+	GetLatestFullFile(pkg Package) (FSFile, error)
+	Download(file FSFile) (*os.File, error)
+}
 
 type Service struct {
 	client    *SFTPClient
@@ -52,12 +57,12 @@ func (s *Service) GetSchemaInfo(pkg Package) (*PackageVersion, error) {
 // Get list of available files for a package
 // Get files after given version for a package
 
-func (s *Service) GetFileList(pkg Package, startVersion *PackageVersion) ([]fsFile, error) {
-	var outputFileList []fsFile
+func (s *Service) GetFileList(pkg Package, startVersion *PackageVersion) ([]FSFile, error) {
+	var outputFileList []FSFile
 
 	files, err := s.client.ReadDir(buildFilePath(pkg))
 	if err != nil {
-		return []fsFile{}, err
+		return []FSFile{}, err
 	}
 
 	fsFiles := transformFileInfo(pkg.Product, files)
@@ -68,7 +73,7 @@ func (s *Service) GetFileList(pkg Package, startVersion *PackageVersion) ([]fsFi
 	}
 
 	for _, v := range fsFiles {
-		if v.version.FeedVersion == startVersion.FeedVersion && v.version.Sequence > startVersion.Sequence {
+		if v.Version.FeedVersion == startVersion.FeedVersion && v.Version.Sequence > startVersion.Sequence {
 			outputFileList = append(outputFileList, v)
 		}
 	}
@@ -76,8 +81,37 @@ func (s *Service) GetFileList(pkg Package, startVersion *PackageVersion) ([]fsFi
 	return outputFileList, nil
 }
 
-func (s *Service) Download(file fsFile) error {
-	return s.client.Download(file.path, s.workspace+"/"+file.name)
+func (s *Service) GetLatestFullFile(pkg Package) (FSFile, error) {
+	var outFile FSFile
+
+	files, err := s.GetFileList(pkg, nil)
+	if err != nil {
+		return FSFile{}, err
+	}
+	if len(files) == 0 {
+		return FSFile{}, errors.New("no valid files")
+	}
+	for _, file := range files {
+		if (FSFile{}) == outFile && file.Version.FeedVersion == pkg.FeedVersion && file.IsFull {
+			outFile = file
+		} else if file.Version.FeedVersion == pkg.FeedVersion && file.Version.Sequence > outFile.Version.Sequence {
+			outFile = file
+		}
+	}
+	return outFile, nil
+}
+
+func (s *Service) Download(file FSFile) (*os.File, error) {
+	err := s.client.Download(file.Path, s.workspace+"/"+file.Name)
+	if err != nil {
+		return nil, err
+	}
+	localFile, err := os.Open(s.workspace + "/" + file.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	return localFile, nil
 }
 
 // ppl              ent                     dataset
@@ -99,28 +133,21 @@ func buildFilePath(pkg Package) string {
 	return fmt.Sprintf("/datafeeds/%s/%s", pkg.FSPackage, pkg.Product)
 }
 
-type fsFile struct {
-	name    string
-	path    string
-	version PackageVersion
-	isFull  bool
-}
-
-func transformFileInfo(product string, files []os.FileInfo) []fsFile {
-	var outputFiles []fsFile
+func transformFileInfo(product string, files []os.FileInfo) []FSFile {
+	var outputFiles []FSFile
 
 	for _, file := range files {
 		if file.IsDir() {
 			continue
 		}
 
-		var outFile fsFile
+		var outFile FSFile
 
-		outFile.path = file.Name()
+		outFile.Path = file.Name()
 
 		// Get the filename from the path and then take off the product name so we've got a clean start point
 		name := file.Name()[strings.LastIndex(file.Name(), "/")+1:]
-		outFile.name = name // Grab the name now before we chop it up.
+		outFile.Name = name // Grab the name now before we chop it up.
 		name = name[:strings.LastIndex(file.Name(), ".")]
 		name = name[len(product)+1:]
 
@@ -130,13 +157,13 @@ func transformFileInfo(product string, files []os.FileInfo) []fsFile {
 		// There are three possible bits remaining, sequence, feedVersion and full.
 		for _, v := range splitName {
 			if v == "full" {
-				outFile.isFull = true
+				outFile.IsFull = true
 			} else if v[0] == 'v' {
 				if i, err := strconv.Atoi(v[1:]); err == nil {
-					outFile.version.FeedVersion = i
+					outFile.Version.FeedVersion = i
 				}
 			} else if i, err := strconv.Atoi(v); err == nil {
-				outFile.version.Sequence = i
+				outFile.Version.Sequence = i
 			}
 		}
 		outputFiles = append(outputFiles, outFile)

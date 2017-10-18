@@ -18,3 +18,4 @@
 vendor/*/
 /factset-uploader
 .idea*
+!/.fixtures/zips/*

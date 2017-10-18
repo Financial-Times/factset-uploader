@@ -1,23 +1,31 @@
 package loader
 
 import (
+	"archive/zip"
 	"database/sql"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/Financial-Times/factset-uploader/factset"
 	"github.com/Financial-Times/factset-uploader/rds"
+	log "github.com/sirupsen/logrus"
 )
 
 type Service struct {
-	config  config
-	db      *rds.Client
-	factset *factset.Service
+	config    config
+	workspace string
+	db        *rds.Client
+	factset   factset.Servicer
 }
 
-func NewService(config config, db *rds.Client, factset *factset.Service) *Service {
+func NewService(config config, db *rds.Client, factset factset.Servicer) *Service {
 	return &Service{
-		config:  config,
-		db:      db,
-		factset: factset,
+		config:    config,
+		db:        db,
+		factset:   factset,
+		workspace: "../",
 	}
 }
 
@@ -76,6 +84,100 @@ func (s *Service) doIncrementalLoad(pkg factset.Package) error {
 // Update metadata with new version.
 // Clean up and update package metadata.
 func (s *Service) doFullLoad(pkg factset.Package) error {
+
+	var lazyErr error
+
+	latestFile, err := s.factset.GetLatestFullFile(pkg)
+	if err != nil {
+		return err
+	}
+
+	localFile, err := s.factset.Download(latestFile)
+	if err != nil {
+		return err
+	}
+
+	filenames, err := s.unzipFile(localFile)
+	log.Info(filenames)
+	if err != nil {
+		return err
+	}
+
+	for _, fn := range filenames {
+		err = s.db.LoadTable(fn, getTableFromFilename(fn))
+		if lazyErr == nil && err != nil {
+			lazyErr = err
+		}
+	}
+
+	log.Error(lazyErr)
+	return nil
+}
+
+func getTableFromFilename(filename string) string {
+	return filename[strings.LastIndex(filename, "/")+1 : strings.LastIndex(filename, ".")]
+}
+
+func (s *Service) unzipFile(file *os.File) ([]string, error) {
+
+	var filenames []string
+
+	zipReader, err := zip.OpenReader(file.Name())
+	if err != nil {
+		return []string{}, err
+	}
+	defer zipReader.Close()
+
+	for _, f := range zipReader.File {
+
+		fpath, _ := filepath.Abs(filepath.Join(s.workspace, f.Name))
+
+		log.Info(fpath)
+
+		err = copyFile(f, fpath)
+		if err != nil {
+			return []string{}, err
+		}
+		filenames = append(filenames, fpath)
+	}
+
+	return filenames, nil
+
+}
+
+func copyFile(srcFile *zip.File, dest string) error {
+	rc, err := srcFile.Open()
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+
+	f, err := os.OpenFile(
+		dest, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if srcFile.FileInfo().IsDir() {
+		os.MkdirAll(dest, os.ModePerm)
+	} else {
+		var fdir string
+		if lastIndex := strings.LastIndex(dest, string(os.PathSeparator)); lastIndex > -1 {
+			fdir = dest[:lastIndex]
+		}
+
+		err = os.MkdirAll(fdir, os.ModePerm)
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
+	}
+
+	_, err = io.Copy(f, rc)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -89,5 +191,6 @@ func (s *Service) reloadSchema(pkg factset.Package) error {
 	if err != nil {
 		return err
 	}
+
 	return nil
 }

@@ -56,7 +56,7 @@ func (c *Client) DropTablesWithPrefix(prefix string) error {
 }
 
 func NewClient(host, user, pass, schema string) (*Client, error) {
-	connString := fmt.Sprintf("%s:%s@%s/%s?interpolateParams=true&parseTime=true", user, pass, host, schema)
+	connString := fmt.Sprintf("%s:%s@%s/%s?interpolateParams=true&parseTime=true&allowAllFiles=true", user, pass, host, schema)
 	db, err := sql.Open("mysql", connString)
 	if err != nil {
 		log.WithError(err).Errorf("Error connecting to db: %s", connString)
@@ -133,26 +133,15 @@ func (c *Client) VerifyMetadata() (bool, error) {
 	return metadataTableCount == MetadataTableCount, nil
 }
 
-//func (c *Client) LoadTable(filename, table string) error {
-//	queryTemplate := `LOAD DATA INFILE '?'
-//					REPLACE
-//					INTO TABLE ?
-//					FIELDS
-//						TERMINATED BY '|'
-//						OPTIONALLY ENCLOSED BY '"'
-//					LINES
-//						TERMINATED BY '\n'
-//					IGNORE 1 LINES;`
-//
-//	stmt, err := c.db.Prepare(queryTemplate)
-//	if err != nil {
-//		return err
-//	}
-//
-//	_, err = stmt.Exec(filename, table)
-//	defer stmt.Close()
-//	return err
-//}
+func (c *Client) LoadTable(filename, table string) error {
+	queryTemplate := `LOAD DATA LOCAL INFILE '%s' REPLACE INTO TABLE %s FIELDS TERMINATED BY '|'
+	OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 LINES;`
+
+	log.Info(filename, table)
+
+	_, err := c.db.Exec(fmt.Sprintf(queryTemplate, filename, table))
+	return err
+}
 
 func (c *Client) GetPackageMetadata(pkg factset.Package) (*factset.PackageMetadata, error) {
 	queryTemplate := `SELECT package, feed_version, schema_sequence, schema_date_loaded, package_sequence, package_date_loaded
