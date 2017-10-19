@@ -19,14 +19,14 @@ const (
 )
 
 type Client struct {
-	db     *sql.DB
+	DB     *sql.DB
 	schema string
 }
 
 func (c *Client) DropTablesWithPrefix(prefix string) error {
 
 	getTableQuery := fmt.Sprintf(`SHOW TABLES LIKE '%s%%'`, prefix)
-	rows, err := c.db.Query(getTableQuery)
+	rows, err := c.DB.Query(getTableQuery)
 	if err != nil {
 		return err
 	}
@@ -47,7 +47,7 @@ func (c *Client) DropTablesWithPrefix(prefix string) error {
 		return nil
 	}
 	dropTableQuery := fmt.Sprintf(`DROP TABLES %s`, strings.Join(tableNames, ", "))
-	_, err = c.db.Exec(dropTableQuery)
+	_, err = c.DB.Exec(dropTableQuery)
 	if err != nil {
 		return err
 	}
@@ -55,8 +55,10 @@ func (c *Client) DropTablesWithPrefix(prefix string) error {
 	return nil
 }
 
-func NewClient(host, user, pass, schema string) (*Client, error) {
-	connString := fmt.Sprintf("%s:%s@%s/%s?interpolateParams=true&parseTime=true&allowAllFiles=true", user, pass, host, schema)
+//
+func NewClient(dsn string) (*Client, error) {
+	schema := dsn[strings.LastIndex(dsn, "/")+1:]
+	connString := fmt.Sprintf("%s?interpolateParams=true&parseTime=true&allowAllFiles=true", dsn)
 	db, err := sql.Open("mysql", connString)
 	if err != nil {
 		log.WithError(err).Errorf("Error connecting to db: %s", connString)
@@ -69,7 +71,7 @@ func NewClient(host, user, pass, schema string) (*Client, error) {
 	}
 
 	return &Client{
-		db:     db,
+		DB:     db,
 		schema: schema,
 	}, nil
 }
@@ -79,7 +81,7 @@ func (c *Client) GetLoadedVersion(tableName string) (factset.PackageVersion, err
 						FROM metadata_table_version
 						WHERE tablename = ?
 						`
-	stmt, err := c.db.Prepare(queryTemplate)
+	stmt, err := c.DB.Prepare(queryTemplate)
 	if err != nil {
 		return factset.PackageVersion{}, err
 	}
@@ -97,7 +99,7 @@ func (c *Client) UpdateLoadedTableVersion(tableName string, version factset.Pack
 	queryTemplate := `REPLACE INTO metadata_table_version
 						(tablename, feed_version, sequence, date_loaded)
 						VALUES (?, ?, ?, NOW())`
-	stmt, err := c.db.Prepare(queryTemplate)
+	stmt, err := c.DB.Prepare(queryTemplate)
 	defer stmt.Close()
 	if err != nil {
 		return err
@@ -120,7 +122,7 @@ func (c *Client) VerifyMetadata() (bool, error) {
 						WHERE TABLE_SCHEMA = ?
 						AND TABLE_NAME LIKE "metadata%"`
 
-	stmt, err := c.db.Prepare(queryTemplate)
+	stmt, err := c.DB.Prepare(queryTemplate)
 	if err != nil {
 		return false, err
 	}
@@ -139,7 +141,7 @@ func (c *Client) LoadTable(filename, table string) error {
 
 	log.Info(filename, table)
 
-	_, err := c.db.Exec(fmt.Sprintf(queryTemplate, filename, table))
+	_, err := c.DB.Exec(fmt.Sprintf(queryTemplate, filename, table))
 	return err
 }
 
@@ -148,7 +150,7 @@ func (c *Client) GetPackageMetadata(pkg factset.Package) (*factset.PackageMetada
 						FROM metadata_package_version
 						WHERE package = ?`
 
-	stmt, err := c.db.Prepare(queryTemplate)
+	stmt, err := c.DB.Prepare(queryTemplate)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +189,7 @@ func (c *Client) LoadMetadataTables() error {
 			package_date_loaded DATETIME,
 			PRIMARY KEY (package)
 		);`
-	_, err := c.db.Exec(query)
+	_, err := c.DB.Exec(query)
 	if err != nil {
 		return err
 	}
@@ -201,7 +203,7 @@ func (c *Client) LoadMetadataTables() error {
 			PRIMARY KEY (tablename)
 		);`
 
-	_, err = c.db.Exec(query2)
-	//_, err = c.db.Exec(fmt.Sprintf(query2, c.schema))
+	_, err = c.DB.Exec(query2)
+	//_, err = c.DB.Exec(fmt.Sprintf(query2, c.schema))
 	return err
 }

@@ -4,6 +4,8 @@ import (
 	"os"
 	"testing"
 
+	"strings"
+
 	"github.com/Financial-Times/factset-uploader/factset"
 	"github.com/Financial-Times/factset-uploader/rds"
 	log "github.com/sirupsen/logrus"
@@ -30,7 +32,11 @@ func TestServiceDoFullLoad(t *testing.T) {
 		},
 	}
 
-	loader := NewService(config{}, createDBClient(), factsetService)
+	dbClient := createDBClient()
+	createPeopleNamesTable(dbClient)
+	defer dropTable(dbClient, "ppl_names")
+
+	loader := NewService(config{}, dbClient, factsetService)
 
 	err := loader.doFullLoad(factset.Package{
 		Dataset:     "ppl",
@@ -109,4 +115,23 @@ func createDBClient() *rds.Client {
 	//log.Infof("Client: %s %s %s %s", testHost, testUser, testPass, testName)
 	dbClient, _ := rds.NewClient(testHost, testUser, testPass, testName)
 	return dbClient
+}
+
+func createPeopleNamesTable(dbClient *rds.Client) {
+	query := `CREATE TABLE ppl_names (
+		FACTSET_PERSON_ID varchar(100) NOT NULL,
+		PEOPLE_NAME_TYPE varchar(45) DEFAULT NULL,
+		PEOPLE_NAME_VALUE varchar(255) DEFAULT NULL,
+		PRIMARY KEY (FACTSET_PERSON_ID)
+	);`
+
+	dbClient.DB.Exec(query)
+}
+
+func dropTable(dbClient *rds.Client, tables ...string) {
+	if len(tables) == 0 {
+		return
+	}
+	query := "DROP TABLE " + strings.Join(tables, ", ")
+	dbClient.DB.Exec(query)
 }

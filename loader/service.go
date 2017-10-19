@@ -104,7 +104,13 @@ func (s *Service) doFullLoad(pkg factset.Package) error {
 	}
 
 	for _, fn := range filenames {
-		err = s.db.LoadTable(fn, getTableFromFilename(fn))
+		tableName := getTableFromFilename(fn)
+		err = s.db.LoadTable(fn, tableName)
+		if lazyErr == nil && err != nil {
+			lazyErr = err
+			continue
+		}
+		err = s.db.UpdateLoadedTableVersion(tableName, latestFile.Version)
 		if lazyErr == nil && err != nil {
 			lazyErr = err
 		}

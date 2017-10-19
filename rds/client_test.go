@@ -75,7 +75,7 @@ func TestClientDropTablesWithPrefix(t *testing.T) {
 func TestClientGetPackageMetadata(t *testing.T) {
 	dbClient.LoadMetadataTables()
 	defer removeMetadataTables()
-	_, err := dbClient.db.Exec(`INSERT INTO metadata_package_version (package, feed_version, schema_sequence, schema_date_loaded, package_sequence, package_date_loaded)
+	_, err := dbClient.DB.Exec(`INSERT INTO metadata_package_version (package, feed_version, schema_sequence, schema_date_loaded, package_sequence, package_date_loaded)
 										VALUES ('ent', 2, 1234, '2017-01-02 03:04:05', 5678, '2017-06-07 08:09:10')`)
 	assert.NoError(t, err)
 
@@ -105,24 +105,24 @@ func TestClientGetPackageMetadata(t *testing.T) {
 }
 
 func removeMetadataTables() {
-	dbClient.db.Exec(`DROP TABLE IF EXISTS metadata_package_version, metadata_table_version`)
+	dbClient.DB.Exec(`DROP TABLE IF EXISTS metadata_package_version, metadata_table_version`)
 }
 
 func createTestTables() {
-	dbClient.db.Exec(`CREATE TABLE ent_test1 (ID VARCHAR(10) NOT NULL)`)
-	dbClient.db.Exec(`CREATE TABLE ent_test2 (ID VARCHAR(10) NOT NULL)`)
-	dbClient.db.Exec(`CREATE TABLE ent_test3 (ID VARCHAR(10) NOT NULL)`)
-	dbClient.db.Exec(`CREATE TABLE ppl_test1 (ID VARCHAR(10) NOT NULL)`)
-	dbClient.db.Exec(`CREATE TABLE ppl_test2 (ID VARCHAR(10) NOT NULL)`)
+	dbClient.DB.Exec(`CREATE TABLE ent_test1 (ID VARCHAR(10) NOT NULL)`)
+	dbClient.DB.Exec(`CREATE TABLE ent_test2 (ID VARCHAR(10) NOT NULL)`)
+	dbClient.DB.Exec(`CREATE TABLE ent_test3 (ID VARCHAR(10) NOT NULL)`)
+	dbClient.DB.Exec(`CREATE TABLE ppl_test1 (ID VARCHAR(10) NOT NULL)`)
+	dbClient.DB.Exec(`CREATE TABLE ppl_test2 (ID VARCHAR(10) NOT NULL)`)
 }
 
 func dropTestTables() {
-	dbClient.db.Exec(`DROP TABLE IF EXISTS ent_test1, ent_test2, ent_test3, ppl_test1, ppl_test2`)
+	dbClient.DB.Exec(`DROP TABLE IF EXISTS ent_test1, ent_test2, ent_test3, ppl_test1, ppl_test2`)
 }
 
 func countTestTables() int {
 	var i int
-	dbClient.db.QueryRow(`SELECT count(*) FROM information_schema.tables WHERE table_schema=?`, dbClient.schema).Scan(&i)
+	dbClient.DB.QueryRow(`SELECT count(*) FROM information_schema.tables WHERE table_schema=?`, dbClient.schema).Scan(&i)
 
 	return i
 }

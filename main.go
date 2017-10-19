@@ -3,6 +3,14 @@ package main
 import (
 	"os"
 
+	"errors"
+	"strings"
+
+	"strconv"
+
+	"github.com/Financial-Times/factset-uploader/factset"
+	"github.com/Financial-Times/factset-uploader/loader"
+	"github.com/Financial-Times/factset-uploader/rds"
 	"github.com/jawher/mow.cli"
 	log "github.com/sirupsen/logrus"
 )
@@ -59,11 +67,24 @@ func main() {
 		EnvVar: "FACTSET_PORT",
 	})
 
-	resources := app.String(cli.StringOpt{
-		Name:   "factsetResources",
+	packages := app.String(cli.StringOpt{
+		Name:   "packages",
 		Value:  "",
-		Desc:   "factset resources to be loaded",
-		EnvVar: "FACTSET_RESOURCES",
+		Desc:   "List of packages to process (dataset,package,product,feedVersion)",
+		EnvVar: "PACKAGES",
+	})
+
+	workspace := app.String(cli.StringOpt{
+		Name:   "workspace",
+		Value:  "",
+		Desc:   "Location to be used to download and process files from",
+		EnvVar: "WORKSPACE",
+	})
+
+	rdsDSN := app.String(cli.StringOpt{
+		Name:   "rdsDSN",
+		Desc:   "DSN to connect to the RDS e.g. user:pass@host/schema - it should not contain any parameters",
+		EnvVar: "RDS_DSN",
 	})
 
 	lvl, err := log.ParseLevel(*logLevel)
@@ -74,20 +95,37 @@ func main() {
 	log.SetFormatter(&log.JSONFormatter{})
 
 	log.WithFields(log.Fields{
-		"APP_SYSTEM_CODE":   *appSystemCode,
-		"LOG_LEVEL":         *logLevel,
-		"FACTSET_FTP":       *factsetFTP,
-		"FACTSET_RESOURCES": *resources,
+		"APP_SYSTEM_CODE": *appSystemCode,
+		"LOG_LEVEL":       *logLevel,
+		"FACTSET_FTP":     *factsetFTP,
 	}).Infof("[Startup] %v is starting", *appName)
 
 	app.Command("run", "Runs the uploader", func(app *cli.Cmd) {
-		app.Action = func() {
 
-			//factsetLoader := loader.NewService()
+		app.Action = func() {
+			factsetService, err := factset.NewService(*factsetUser, *factsetKey, *factsetFTP, *factsetPort, *workspace)
+			if err != nil {
+				log.Error(err)
+				return
+			}
+
+			rdsService, err := rds.NewClient(*rdsDSN)
+			if err != nil {
+				log.Error(err)
+				return
+			}
+
+			config, err := convertConfig(*packages)
+			if err != nil {
+				log.Error(err)
+				return
+			}
+
+			factsetLoader := loader.NewService(config, rdsService, factsetService)
+			factsetLoader.LoadPackages()
 		}
 	})
 
-	runService(factsetUser, factsetKey, factsetFTP, factsetPort, resources)
 	err = app.Run(os.Args)
 	if err != nil {
 		log.Errorf("App could not start, error=[%s]\n", err)
@@ -95,7 +133,24 @@ func main() {
 	}
 }
 
-func runService(factsetUser *string, factsetKey *string, factsetFTP *string, factsetPort *int, resources *string) {
-	// Do something with all of this
-	return
+func convertConfig(configString string) (loader.Config, error) {
+
+	var config loader.Config
+	splitConfig := strings.Split(configString, ";")
+	for _, pkg := range splitConfig {
+		splitPkg := strings.Split(pkg, ",")
+		if len(splitPkg) != 4 {
+			return loader.Config{}, errors.New("package config has the wrong number of values")
+		}
+
+		version, _ := strconv.Atoi(splitPkg[3])
+		config.AddPackage(factset.Package{
+			Dataset:     splitPkg[0],
+			FSPackage:   splitPkg[1],
+			Product:     splitPkg[2],
+			FeedVersion: version,
+		})
+	}
+
+	return config, nil
 }

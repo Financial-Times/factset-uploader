@@ -16,8 +16,21 @@ type Servicer interface {
 }
 
 type Service struct {
-	client    *SFTPClient
+	client    *sftpClient
 	workspace string
+}
+
+func NewService(sftpUser, sftpKey, sftpAddress string, sftpPort int, workspace string) (Servicer, error) {
+
+	sftpClient, err := newSFTPClient(sftpUser, sftpKey, sftpAddress, sftpPort)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Service{
+		client:    sftpClient,
+		workspace: workspace,
+	}, nil
 }
 
 func (s *Service) GetSchemaInfo(pkg Package) (*PackageVersion, error) {
