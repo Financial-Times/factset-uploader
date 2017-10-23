@@ -30,7 +30,24 @@ _How can I run it_
 
 _TODO: How do we run this locally with the whitelist on the Factset side, tunnel?_
 
-1. Run the tests and install the binary:
+1. Install MySql
+    brew info mysql56
+    OSX:
+    ```
+    brew install mysql56
+    echo 'export PATH="/usr/local/opt/mysql@5.6/bin:$PATH"' >> ~/.bash_profile
+    ```
+
+    Windows:
+    
+        https://dev.mysql.com/downloads/mysql/5.6.html#downloads
+
+
+2. Install MySql Workbench (Optional)
+
+    https://dev.mysql.com/downloads/workbench/
+
+3. Run the tests and install the binary:
 
         govendor sync
         govendor test -v -race
