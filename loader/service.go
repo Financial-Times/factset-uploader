@@ -11,16 +11,18 @@ import (
 	"github.com/Financial-Times/factset-uploader/factset"
 	"github.com/Financial-Times/factset-uploader/rds"
 	log "github.com/sirupsen/logrus"
+	"fmt"
+	"io/ioutil"
 )
 
 type Service struct {
-	config    config
+	config    Config
 	workspace string
 	db        *rds.Client
 	factset   factset.Servicer
 }
 
-func NewService(config config, db *rds.Client, factset factset.Servicer) *Service {
+func NewService(config Config, db *rds.Client, factset factset.Servicer) *Service {
 	return &Service{
 		config:    config,
 		db:        db,
@@ -190,7 +192,7 @@ func copyFile(srcFile *zip.File, dest string) error {
 // Reloading schema:
 // Delete all tables with applicable prefix
 // Download new schema and unzip
-// Run new table creation script.
+// Run new table creation script - ent_v1_table_generation_statements.sql
 func (s *Service) reloadSchema(pkg factset.Package) error {
 
 	err := s.db.DropTablesWithPrefix(pkg.Dataset)
@@ -198,5 +200,51 @@ func (s *Service) reloadSchema(pkg factset.Package) error {
 		return err
 	}
 
+	fsfile, err := s.downloadSchema(pkg)
+	if err != nil {
+		return err
+	}
+
+	zipFile, err := s.factset.Download(*fsfile)
+
+	if err != nil {
+		return err
+	}
+
+	fileNames, err := s.unzipFile(zipFile)
+	if err != nil {
+		return err
+	}
+
+	for _, file := range fileNames {
+		if strings.HasSuffix(file, ".sql") {
+			fileContents, err := ioutil.ReadFile(file)
+			if err != nil {
+				return err
+			}
+
+
+		}
+	}
+
 	return nil
 }
+
+func (s *Service) downloadSchema(pkg factset.Package) (*factset.FSFile, error){
+	pkgVersion, err := s.factset.GetSchemaInfo(pkg)
+
+	if (err != nil) {
+		return &factset.FSFile{}, err
+	}
+
+	fileName := fmt.Sprintf("%s_%s_schema_%s.zip", pkg.Dataset, pkgVersion.FeedVersion, pkgVersion.Sequence)
+
+	return &factset.FSFile{
+		Name: fileName,
+		Path: fmt.Sprintf("/datafeeds/documents/docs_%s/%s", pkg.Dataset, fileName),
+		IsFull:false,
+		Version: *pkgVersion,
+	}, nil
+
+}
+

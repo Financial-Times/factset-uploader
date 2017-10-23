@@ -207,3 +207,19 @@ func (c *Client) LoadMetadataTables() error {
 	//_, err = c.DB.Exec(fmt.Sprintf(query2, c.schema))
 	return err
 }
+
+// The content of the file factset provides with all the create table statements delimited by a ;
+func (c *Client)CreateTablesFromSchema(contents []byte) error {
+	statements := strings.Split(string(contents), ";")
+
+	for _, statement := range statements {
+		_, err := c.DB.Exec(statement)
+
+		if err != nil {
+			// Add lazy erroring
+			return err
+		}
+
+	}
+	return nil
+}

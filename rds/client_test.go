@@ -13,25 +13,13 @@ import (
 var dbClient *Client
 
 func init() {
-	testHost := ""
-	testUser := "root"
-	testPass := "root"
-	testName := "test"
+	var dsn string
 
-	if os.Getenv("RDS_TEST_HOST") != "" {
-		testHost = os.Getenv("RDS_TEST_HOST")
+	if os.Getenv("RDS_RDS_DSN") != "" {
+		dsn = os.Getenv("RDS_RDS_DSN")
 	}
-	if os.Getenv("RDS_TEST_USER") != "" {
-		testUser = os.Getenv("RDS_TEST_USER")
-	}
-	if os.Getenv("RDS_TEST_PASS") != "" {
-		testPass = os.Getenv("RDS_TEST_PASS")
-	}
-	if os.Getenv("RDS_TEST_NAME") != "" {
-		testName = os.Getenv("RDS_TEST_NAME")
-	}
-	//log.Infof("Client: %s %s %s %s", testHost, testUser, testPass, testName)
-	dbClient, _ = NewClient(testHost, testUser, testPass, testName)
+
+	dbClient, _ = NewClient(dsn)
 }
 
 func TestClientGetLoadedVersionNoTable(t *testing.T) {
