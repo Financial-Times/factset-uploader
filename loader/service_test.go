@@ -36,7 +36,7 @@ func TestServiceDoFullLoad(t *testing.T) {
 	createPeopleNamesTable(dbClient)
 	defer dropTable(dbClient, "ppl_names")
 
-	loader := NewService(config{}, dbClient, factsetService)
+	loader := NewService(Config{}, dbClient, factsetService)
 
 	err := loader.doFullLoad(factset.Package{
 		Dataset:     "ppl",
