@@ -39,7 +39,7 @@ _TODO: How do we run this locally with the whitelist on the Factset side, tunnel
     ```
 
     Windows:
-    
+
         https://dev.mysql.com/downloads/mysql/5.6.html#downloads
 
 

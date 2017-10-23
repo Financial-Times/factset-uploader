@@ -95,25 +95,13 @@ func pickLatestFile(f1 factset.FSFile, f2 factset.FSFile, pkg factset.Package) f
 }
 
 func createDBClient() *rds.Client {
-	testHost := ""
-	testUser := "root"
-	testPass := "root"
-	testName := "test"
+	testDSN := ""
 
-	if os.Getenv("RDS_TEST_HOST") != "" {
-		testHost = os.Getenv("RDS_TEST_HOST")
-	}
-	if os.Getenv("RDS_TEST_USER") != "" {
-		testUser = os.Getenv("RDS_TEST_USER")
-	}
-	if os.Getenv("RDS_TEST_PASS") != "" {
-		testPass = os.Getenv("RDS_TEST_PASS")
-	}
-	if os.Getenv("RDS_TEST_NAME") != "" {
-		testName = os.Getenv("RDS_TEST_NAME")
+	if os.Getenv("RDS_TEST_DSN") != "" {
+		testDSN = os.Getenv("RDS_TEST_DSN")
 	}
 	//log.Infof("Client: %s %s %s %s", testHost, testUser, testPass, testName)
-	dbClient, _ := rds.NewClient(testHost, testUser, testPass, testName)
+	dbClient, _ := rds.NewClient(testDSN)
 	return dbClient
 }
 
