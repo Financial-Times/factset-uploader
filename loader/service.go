@@ -222,8 +222,10 @@ func (s *Service) reloadSchema(pkg factset.Package) error {
 			if err != nil {
 				return err
 			}
-
-
+			err = s.db.CreateTablesFromSchema(fileContents)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
