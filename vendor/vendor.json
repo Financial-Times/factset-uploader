@@ -3,6 +3,10 @@
 	"ignore": "test",
 	"package": [
 		{
+			"path": "appengine/cloudsql",
+			"revision": ""
+		},
+		{
 			"checksumSHA1": "fNgRM8ZlaDzdvSpuhSdGxEOrWi4=",
 			"path": "github.com/Financial-Times/go-fthealth/v1_1",
 			"revision": "e7ccca038327a0091303a52445ec1f0fb66cb97b",
@@ -33,10 +37,22 @@
 			"revisionTime": "2017-08-22T13:27:46Z"
 		},
 		{
+			"checksumSHA1": "7a/F+YTqQYwcYKuaWun91gwGOn0=",
+			"path": "github.com/coreos/fleet/log",
+			"revision": "62b0ee5beaf8ba569b1b0f1526cc156c5b930281",
+			"revisionTime": "2017-02-15T20:05:54Z"
+		},
+		{
 			"checksumSHA1": "mrz/kicZiUaHxkyfvC/DyQcr8Do=",
 			"path": "github.com/davecgh/go-spew/spew",
 			"revision": "ecdeabc65495df2dec95d7c4a4c3e021903035e5",
 			"revisionTime": "2017-10-02T20:02:53Z"
+		},
+		{
+			"checksumSHA1": "os4jdoOUjr86qvOwri8Ut1rXDrg=",
+			"path": "github.com/go-sql-driver/mysql",
+			"revision": "fade21009797158e7b79e04c340118a9220c6f9e",
+			"revisionTime": "2017-10-17T18:16:16Z"
 		},
 		{
 			"checksumSHA1": "tUGxc7rfX0cmhOOUDhMuAZ9rWsA=",
@@ -51,10 +67,22 @@
 			"revisionTime": "2017-09-24T10:56:05Z"
 		},
 		{
+			"checksumSHA1": "KQhA4EQp4Ldwj9nJZnEURlE6aQw=",
+			"path": "github.com/kr/fs",
+			"revision": "2788f0dbd16903de03cb8186e5c7d97b69ad387b",
+			"revisionTime": "2013-11-06T22:25:44Z"
+		},
+		{
 			"checksumSHA1": "rJab1YdNhQooDiBWNnt7TLWPyBU=",
 			"path": "github.com/pkg/errors",
 			"revision": "f15c970de5b76fac0b59abb32d62c17cc7bed265",
 			"revisionTime": "2017-10-18T19:55:50Z"
+		},
+		{
+			"checksumSHA1": "Wo4SPxRC6InTL2ctvgjDHdqJPSw=",
+			"path": "github.com/pkg/sftp",
+			"revision": "7c1f7a370726a2457b33b29baefc2402b4965c65",
+			"revisionTime": "2017-10-02T00:55:39Z"
 		},
 		{
 			"checksumSHA1": "LuFv4/jlrmFNnDb/5SCSEPAM9vU=",
