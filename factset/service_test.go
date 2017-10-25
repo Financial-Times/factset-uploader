@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"io"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -19,10 +20,40 @@ func (m *MockSftpClient) ReadDir(dir string) ([]os.FileInfo, error) {
 }
 
 func (m *MockSftpClient) Download(path string, dest string) error {
+	if m.err == nil {
+		m.err = copyFile(path)
+	}
 	return m.err
 }
 
 func (m *MockSftpClient) Close() {
+	os.Remove("./ppl_test_v1_full_1234.zip")
+}
+
+func copyFile(path string) error {
+	srcFile, err := os.Open(path + "/ppl_test_v1_full_1234.zip")
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	destFile, err := os.Create("ppl_test_v1_full_1234.zip")
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, srcFile)
+	if err != nil {
+		return err
+	}
+
+	err = destFile.Sync()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func Test_GetSchemaInfo(t *testing.T) {
@@ -246,6 +277,51 @@ func Test_GetLatestFile(t *testing.T) {
 					assert.Equal(t, d.expectedSequence, fsFile.Version.Sequence, fmt.Sprintf("Test: %s failed, did not extract latest sequence", d.testName))
 				}
 			}
+		})
+	}
+}
+
+func Test_Download1(t *testing.T) {
+	ftpFile := FSFile{Name: "ppl_test_v1_full_1234.zip", Path: "../fixtures/datafeeds/people/ppl_test/ppl_singleZip", Version: PackageVersion{FeedVersion: 1, Sequence: 1234}, IsFull: true}
+	fs := &Service{&MockSftpClient{}, ".", "../fixtures/datafeeds"}
+	fmt.Printf("File name is %s\n", ftpFile.Name)
+	fmt.Printf("File path is %s\n", ftpFile.Path)
+	fsFile, err := fs.Download(ftpFile)
+	assert.NotNil(t, fsFile, "Should not be nil...")
+	assert.NoError(t, err, fmt.Sprintf("Test: %s failed, did not copy file to current directory", "Test_Download"))
+	defer fs.client.Close()
+}
+
+func Test_Download(t *testing.T) {
+	testCases := []struct {
+		testName      string
+		expectedError error
+	}{
+		{
+			"Success when file is downloaded and opened",
+			nil,
+		},
+		{
+			"Error when file can not be downloaded",
+			errors.New("Can not download file"),
+		},
+		{
+			"Error when file can not be downloaded",
+			errors.New("Can not open file"),
+		},
+	}
+	for _, d := range testCases {
+		t.Run(d.testName, func(t *testing.T) {
+			ftpFile := FSFile{Name: "ppl_test_v1_full_1234.zip", Path: "../fixtures/datafeeds/people/ppl_test/ppl_singleZip", Version: PackageVersion{FeedVersion: 1, Sequence: 1234}, IsFull: true}
+			fs := &Service{&MockSftpClient{err: d.expectedError}, ".", "../fixtures/datafeeds"}
+			fsFile, err := fs.Download(ftpFile)
+			if d.expectedError != nil {
+				assert.Error(t, err, fmt.Sprintf("Test: %s failed, error whilst downloading/copying file to current directory", d.testName))
+			} else {
+				assert.NotNil(t, fsFile, fmt.Sprintf("Test: %s failed, file should exist in current directory", d.testName))
+				assert.Contains(t, fsFile.Name(), "ppl_test_v1_full_1234.zip", fmt.Sprintf("Test: %s failed, file name does not match expected", d.testName))
+			}
+			defer fs.client.Close()
 		})
 	}
 }
