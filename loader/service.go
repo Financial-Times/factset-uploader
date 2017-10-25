@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"fmt"
 	"github.com/Financial-Times/factset-uploader/factset"
 	"github.com/Financial-Times/factset-uploader/rds"
 	log "github.com/sirupsen/logrus"
-	"fmt"
 	"io/ioutil"
 )
 
@@ -89,33 +89,44 @@ func (s *Service) doFullLoad(pkg factset.Package) error {
 
 	var lazyErr error
 
-	latestFile, err := s.factset.GetLatestFullFile(pkg)
+	latestFile, err := s.factset.GetLatestFile(pkg, true)
 	if err != nil {
 		return err
 	}
 
-	localFile, err := s.factset.Download(latestFile)
+	//Compare with metatdata
+	currentLoadedFileMetadata, err := s.db.GetPackageMetadata(pkg)
 	if err != nil {
 		return err
 	}
 
-	filenames, err := s.unzipFile(localFile)
-	log.Info(filenames)
-	if err != nil {
-		return err
-	}
+	if currentLoadedFileMetadata.PackageVersion.FeedVersion == latestFile.Version.FeedVersion && currentLoadedFileMetadata.PackageVersion.Sequence > latestFile.Version.Sequence {
 
-	for _, fn := range filenames {
-		tableName := getTableFromFilename(fn)
-		err = s.db.LoadTable(fn, tableName)
-		if lazyErr == nil && err != nil {
-			lazyErr = err
-			continue
+		localFile, err := s.factset.Download(latestFile)
+		if err != nil {
+			return err
 		}
-		err = s.db.UpdateLoadedTableVersion(tableName, latestFile.Version)
-		if lazyErr == nil && err != nil {
-			lazyErr = err
+
+		filenames, err := s.unzipFile(localFile)
+		log.Info(filenames)
+		if err != nil {
+			return err
 		}
+
+		for _, fn := range filenames {
+			tableName := getTableFromFilename(fn)
+			err = s.db.LoadTable(fn, tableName)
+			if lazyErr == nil && err != nil {
+				lazyErr = err
+				continue
+			}
+			err = s.db.UpdateLoadedTableVersion(tableName, latestFile.Version)
+			if lazyErr == nil && err != nil {
+				lazyErr = err
+			}
+		}
+	} else {
+		log.Info("More recent file has already been loaded into db")
 	}
 
 	log.Error(lazyErr)
@@ -232,21 +243,20 @@ func (s *Service) reloadSchema(pkg factset.Package) error {
 	return nil
 }
 
-func (s *Service) downloadSchema(pkg factset.Package) (*factset.FSFile, error){
+func (s *Service) downloadSchema(pkg factset.Package) (*factset.FSFile, error) {
 	pkgVersion, err := s.factset.GetSchemaInfo(pkg)
 
-	if (err != nil) {
+	if err != nil {
 		return &factset.FSFile{}, err
 	}
 
 	fileName := fmt.Sprintf("%s_%s_schema_%s.zip", pkg.Dataset, pkgVersion.FeedVersion, pkgVersion.Sequence)
 
 	return &factset.FSFile{
-		Name: fileName,
-		Path: fmt.Sprintf("/datafeeds/documents/docs_%s/%s", pkg.Dataset, fileName),
-		IsFull:false,
+		Name:    fileName,
+		Path:    fmt.Sprintf("/datafeeds/documents/docs_%s/%s", pkg.Dataset, fileName),
+		IsFull:  false,
 		Version: *pkgVersion,
 	}, nil
 
 }
-

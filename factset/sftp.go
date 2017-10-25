@@ -16,6 +16,12 @@ type sftpClient struct {
 	sftp *sftp.Client
 }
 
+type sftpClienter interface {
+	ReadDir(dir string) ([]os.FileInfo, error)
+	Download(path string, dest string) error
+	Close()
+}
+
 func newSFTPClient(user, key, address string, port int) (*sftpClient, error) {
 
 	signer, err := ssh.ParsePrivateKey([]byte(key))
@@ -35,13 +41,13 @@ func newSFTPClient(user, key, address string, port int) (*sftpClient, error) {
 		return nil, err
 	}
 
-	sftpClient, err := sftp.NewClient(tcpConn)
+	client, err := sftp.NewClient(tcpConn)
 	if err != nil {
 		return nil, err
 	}
 
 	return &sftpClient{
-		sftp: sftpClient,
+		sftp: client,
 	}, nil
 }
 
@@ -51,7 +57,6 @@ func (s *sftpClient) ReadDir(dir string) ([]os.FileInfo, error) {
 
 func (s *sftpClient) Download(path string, dest string) error {
 	file, err := s.sftp.Open(path)
-	file.Name()
 	if err != nil {
 		return err
 	}

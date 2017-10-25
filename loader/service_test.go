@@ -22,7 +22,7 @@ func TestServiceDoFullLoad(t *testing.T) {
 					FeedVersion: 1,
 					Sequence:    1234,
 				},
-				Path:   "../.fixtures/zips/ppl_test_v1_full_1234.zip",
+				Path:   "../fixtures/datafeeds/people/ppl_test/ppl_singleZip",
 				IsFull: true,
 			},
 		},
@@ -36,12 +36,12 @@ func TestServiceDoFullLoad(t *testing.T) {
 	createPeopleNamesTable(dbClient)
 	defer dropTable(dbClient, "ppl_names")
 
-	loader := NewService(config{}, dbClient, factsetService)
+	loader := NewService(Config{}, dbClient, factsetService)
 
 	err := loader.doFullLoad(factset.Package{
 		Dataset:     "ppl",
 		FSPackage:   "people",
-		Product:     "ppl_test",
+		Product:     "ppl_pickCorrectZip",
 		FeedVersion: 1,
 	})
 
@@ -58,11 +58,7 @@ func (s *MockFactsetService) GetSchemaInfo(pkg factset.Package) (*factset.Packag
 	return &s.schemaInfo, nil
 }
 
-func (s *MockFactsetService) GetFileList(pkg factset.Package, startVersion *factset.PackageVersion) ([]factset.FSFile, error) {
-	return s.fileList, nil
-}
-
-func (s *MockFactsetService) GetLatestFullFile(pkg factset.Package) (factset.FSFile, error) {
+func (s *MockFactsetService) GetLatestFile(pkg factset.Package, isFullLoad bool) (factset.FSFile, error) {
 
 	var latestFile factset.FSFile
 
@@ -75,7 +71,7 @@ func (s *MockFactsetService) GetLatestFullFile(pkg factset.Package) (factset.FSF
 func (s *MockFactsetService) Download(file factset.FSFile) (*os.File, error) {
 	wd, _ := os.Getwd()
 	log.Info(wd)
-	return os.Open("../.fixtures/zips/" + file.Name)
+	return os.Open("../fixtures/datafeeds/people/ppl_test/ppl_singleZip/" + file.Name)
 }
 
 func pickLatestFile(f1 factset.FSFile, f2 factset.FSFile, pkg factset.Package) factset.FSFile {

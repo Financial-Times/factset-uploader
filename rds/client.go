@@ -209,7 +209,7 @@ func (c *Client) LoadMetadataTables() error {
 }
 
 // The content of the file factset provides with all the create table statements delimited by a ;
-func (c *Client)CreateTablesFromSchema(contents []byte) error {
+func (c *Client) CreateTablesFromSchema(contents []byte) error {
 	statements := strings.Split(string(contents), ";")
 
 	for _, statement := range statements {

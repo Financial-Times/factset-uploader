@@ -3,6 +3,7 @@ package factset
 import (
 	"errors"
 	"fmt"
+	"github.com/coreos/fleet/log"
 	"os"
 	"strconv"
 	"strings"
@@ -10,15 +11,18 @@ import (
 
 type Servicer interface {
 	GetSchemaInfo(pkg Package) (*PackageVersion, error)
-	GetFileList(pkg Package, startVersion *PackageVersion) ([]FSFile, error)
-	GetLatestFullFile(pkg Package) (FSFile, error)
+	GetLatestFile(pkg Package, isFull bool) (FSFile, error)
 	Download(file FSFile) (*os.File, error)
 }
 
 type Service struct {
-	client    *sftpClient
-	workspace string
+	client           sftpClienter
+	workspace        string
+	ftpServerBaseDir string
 }
+
+var baseDir = "/datafeeds"
+var schemaDir = "/documents"
 
 func NewService(sftpUser, sftpKey, sftpAddress string, sftpPort int, workspace string) (Servicer, error) {
 
@@ -28,22 +32,22 @@ func NewService(sftpUser, sftpKey, sftpAddress string, sftpPort int, workspace s
 	}
 
 	return &Service{
-		client:    sftpClient,
-		workspace: workspace,
+		client:           sftpClient,
+		workspace:        workspace,
+		ftpServerBaseDir: baseDir,
 	}, nil
 }
 
 func (s *Service) GetSchemaInfo(pkg Package) (*PackageVersion, error) {
-	files, err := s.client.ReadDir(buildSchemaPath(pkg))
+	files, err := s.client.ReadDir(s.ftpServerBaseDir + schemaDir + fmt.Sprintf("/docs_%s/", pkg.Dataset))
 	if err != nil {
 		return nil, err
 	}
 
-	var latestSchema *PackageVersion
+	var latestSchema = &PackageVersion{-1, -1}
 
 	for _, file := range files {
-		name := file.Name()[strings.LastIndex(file.Name(), "/")+1:]
-		name = name[:strings.LastIndex(file.Name(), ".")]
+		name := file.Name()[:strings.LastIndex(file.Name(), ".")]
 
 		splitName := strings.Split(name, "_")
 
@@ -54,63 +58,44 @@ func (s *Service) GetSchemaInfo(pkg Package) (*PackageVersion, error) {
 		feedVersion, _ := strconv.Atoi(splitName[1][1:])
 		sequence, _ := strconv.Atoi(splitName[3])
 
-		if latestSchema != nil && feedVersion > latestSchema.FeedVersion {
+		if feedVersion >= latestSchema.FeedVersion || sequence > latestSchema.Sequence {
 			latestSchema = &PackageVersion{
 				FeedVersion: feedVersion,
 				Sequence:    sequence,
 			}
 		}
 	}
-	if latestSchema == nil {
-		return nil, errors.New("Could not find schema")
+	if latestSchema == nil || latestSchema.FeedVersion == -1 || latestSchema.Sequence == -1 {
+		return nil, errors.New("Could not process schema")
 	}
 	return latestSchema, nil
 }
 
 // Get list of available files for a package
 // Get files after given version for a package
-
-func (s *Service) GetFileList(pkg Package, startVersion *PackageVersion) ([]FSFile, error) {
-	var outputFileList []FSFile
-
-	files, err := s.client.ReadDir(buildFilePath(pkg))
-	if err != nil {
-		return []FSFile{}, err
-	}
-
-	fsFiles := transformFileInfo(pkg.Product, files)
-
-	if startVersion == nil {
-		// No filtering required.
-		return fsFiles, nil
-	}
-
-	for _, v := range fsFiles {
-		if v.Version.FeedVersion == startVersion.FeedVersion && v.Version.Sequence > startVersion.Sequence {
-			outputFileList = append(outputFileList, v)
-		}
-	}
-
-	return outputFileList, nil
-}
-
-func (s *Service) GetLatestFullFile(pkg Package) (FSFile, error) {
+func (s *Service) GetLatestFile(pkg Package, isFull bool) (FSFile, error) {
 	var outFile FSFile
 
-	files, err := s.GetFileList(pkg, nil)
+	pathToFiles := s.ftpServerBaseDir + fmt.Sprintf("/%s/%s", pkg.FSPackage, pkg.Product)
+	files, err := s.client.ReadDir(outFile.Path)
 	if err != nil {
-		return FSFile{}, err
+		return outFile, err
 	}
 	if len(files) == 0 {
-		return FSFile{}, errors.New("no valid files")
+		return outFile, errors.New("No valid files")
 	}
-	for _, file := range files {
-		if (FSFile{}) == outFile && file.Version.FeedVersion == pkg.FeedVersion && file.IsFull {
-			outFile = file
-		} else if file.Version.FeedVersion == pkg.FeedVersion && file.Version.Sequence > outFile.Version.Sequence {
+
+	fsFiles := transformFileInfo(pkg.Product, files, isFull)
+	if len(fsFiles) == 0 {
+		return outFile, errors.New("Failed to extract file info from ftp server")
+	}
+
+	for _, file := range fsFiles {
+		if file.Version.FeedVersion == pkg.FeedVersion && file.Version.Sequence > outFile.Version.Sequence {
 			outFile = file
 		}
 	}
+	outFile.Path = pathToFiles
 	return outFile, nil
 }
 
@@ -139,25 +124,16 @@ func (s *Service) Download(file FSFile) (*os.File, error) {
 //   /datafeeds/edm/edm_premium/edm_premium_full_1972.zip
 //   /datafeeds/edm/edm_premium/edm_premium_1973.zip
 
-func buildSchemaPath(pkg Package) string {
-	return fmt.Sprintf("/datafeeds/documents/docs_%s", pkg.Dataset)
-}
-
-func buildFilePath(pkg Package) string {
-	return fmt.Sprintf("/datafeeds/%s/%s", pkg.FSPackage, pkg.Product)
-}
-
-func transformFileInfo(product string, files []os.FileInfo) []FSFile {
+func transformFileInfo(product string, files []os.FileInfo, isFull bool) []FSFile {
 	var outputFiles []FSFile
 
 	for _, file := range files {
 		if file.IsDir() {
+			log.Debugf("File %s is a directory...\n", file.Name())
 			continue
 		}
 
 		var outFile FSFile
-
-		outFile.Path = file.Name()
 
 		// Get the filename from the path and then take off the product name so we've got a clean start point
 		name := file.Name()[strings.LastIndex(file.Name(), "/")+1:]
@@ -172,16 +148,20 @@ func transformFileInfo(product string, files []os.FileInfo) []FSFile {
 		for _, v := range splitName {
 			if v == "full" {
 				outFile.IsFull = true
-			} else if v[0] == 'v' {
+			}
+			if v[0] == 'v' {
 				if i, err := strconv.Atoi(v[1:]); err == nil {
 					outFile.Version.FeedVersion = i
 				}
-			} else if i, err := strconv.Atoi(v); err == nil {
+			}
+			if i, err := strconv.Atoi(v); err == nil {
 				outFile.Version.Sequence = i
 			}
 		}
-		outputFiles = append(outputFiles, outFile)
+		if isFull == outFile.IsFull {
+			outputFiles = append(outputFiles, outFile)
+		}
+
 	}
 	return outputFiles
 }
-
