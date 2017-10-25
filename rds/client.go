@@ -57,6 +57,7 @@ func (c *Client) DropTablesWithPrefix(prefix string) error {
 
 //
 func NewClient(dsn string) (*Client, error) {
+
 	schema := dsn[strings.LastIndex(dsn, "/")+1:]
 	connString := fmt.Sprintf("%s?interpolateParams=true&parseTime=true&allowAllFiles=true", dsn)
 	db, err := sql.Open("mysql", connString)

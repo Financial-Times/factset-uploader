@@ -8,6 +8,7 @@ import (
 
 	"github.com/Financial-Times/factset-uploader/factset"
 	"github.com/stretchr/testify/assert"
+	_ "github.com/joho/godotenv/autoload"
 )
 
 var dbClient *Client
@@ -17,6 +18,8 @@ func init() {
 
 	if os.Getenv("RDS_RDS_DSN") != "" {
 		dsn = os.Getenv("RDS_RDS_DSN")
+	} else {
+		dsn = "mysql:host@localhost:3306/test"
 	}
 
 	dbClient, _ = NewClient(dsn)
