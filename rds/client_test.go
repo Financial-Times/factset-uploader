@@ -16,10 +16,10 @@ var dbClient *Client
 func init() {
 	var dsn string
 
-	if os.Getenv("RDS_RDS_DSN") != "" {
-		dsn = os.Getenv("RDS_RDS_DSN")
+	if os.Getenv("RDS_DSN") != "" {
+		dsn = os.Getenv("RDS_DSN")
 	} else {
-		dsn = "mysql:host@localhost:3306/test"
+		dsn = "root:@/test"
 	}
 
 	dbClient, _ = NewClient(dsn)
@@ -109,6 +109,7 @@ func createTestTables() {
 
 func dropTestTables() {
 	dbClient.DB.Exec(`DROP TABLE IF EXISTS ent_test1, ent_test2, ent_test3, ppl_test1, ppl_test2`)
+
 }
 
 func countTestTables() int {

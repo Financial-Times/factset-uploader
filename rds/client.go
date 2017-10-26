@@ -117,6 +117,28 @@ func (c *Client) UpdateLoadedTableVersion(tableName string, version factset.Pack
 	return nil
 }
 
+func (c *Client) UpdateLoadedPackageVersion(packageMetadata *factset.PackageMetadata) error {
+	queryTemplate := `REPLACE INTO metadata_package_version
+						(package, feed_version, schema_sequence, schema_date_loaded, package_sequence, package_date_loaded)
+						VALUES (?, ?, ?, ?, ?, NOW())`
+	stmt, err := c.DB.Prepare(queryTemplate)
+	defer stmt.Close()
+	if err != nil {
+		return err
+	}
+
+	res, err := stmt.Exec(packageMetadata.Package.FSPackage, packageMetadata.PackageVersion.FeedVersion, packageMetadata.SchemaVersion.Sequence, packageMetadata.SchemaLoadedDate, packageMetadata.PackageVersion.Sequence)
+
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := res.RowsAffected()
+	if rowsAffected <= 0 {
+		return errors.New("No row has been updated")
+	}
+	return nil
+}
+
 func (c *Client) VerifyMetadata() (bool, error) {
 	queryTemplate := `SELECT count(*)
 						FROM information_schema.TABLES
@@ -150,17 +172,21 @@ func (c *Client) GetPackageMetadata(pkg factset.Package) (*factset.PackageMetada
 	queryTemplate := `SELECT package, feed_version, schema_sequence, schema_date_loaded, package_sequence, package_date_loaded
 						FROM metadata_package_version
 						WHERE package = ?`
-
+	fmt.Printf("HERE")
 	stmt, err := c.DB.Prepare(queryTemplate)
 	if err != nil {
+		fmt.Printf("Error: %v", err)
 		return nil, err
 	}
 	var packageName string
 	var feedVersion, schemaSequence, packageSequence int
 	var schemaDateLoaded, packageDateLoaded time.Time
-	if err := stmt.QueryRow(pkg.Dataset).Scan(
+
+	err = stmt.QueryRow(pkg.Dataset).Scan(
 		&packageName, &feedVersion, &schemaSequence,
-		&schemaDateLoaded, &packageSequence, &packageDateLoaded); err != nil {
+		&schemaDateLoaded, &packageSequence, &packageDateLoaded)
+
+	if err != nil {
 		return nil, err
 	}
 	return &factset.PackageMetadata{
@@ -179,7 +205,6 @@ func (c *Client) GetPackageMetadata(pkg factset.Package) (*factset.PackageMetada
 }
 
 func (c *Client) LoadMetadataTables() error {
-
 	query := `
 		CREATE TABLE IF NOT EXISTS metadata_package_version (
 			package varchar(255) NOT NULL,
@@ -217,10 +242,8 @@ func (c *Client) CreateTablesFromSchema(contents []byte) error {
 		_, err := c.DB.Exec(statement)
 
 		if err != nil {
-			// Add lazy erroring
 			return err
 		}
-
 	}
 	return nil
 }

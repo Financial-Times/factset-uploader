@@ -13,6 +13,9 @@ import (
 )
 
 func TestServiceDoFullLoad(t *testing.T) {
+	dbClient := createDBClient()
+	dbClient.LoadMetadataTables()
+	defer removeMetadataTables(dbClient)
 
 	factsetService := &MockFactsetService{
 		fileList: []factset.FSFile{
@@ -32,8 +35,8 @@ func TestServiceDoFullLoad(t *testing.T) {
 		},
 	}
 
-	dbClient := createDBClient()
 	createPeopleNamesTable(dbClient)
+
 	defer dropTable(dbClient, "ppl_names")
 
 	loader := NewService(Config{}, dbClient, factsetService)
@@ -93,10 +96,12 @@ func pickLatestFile(f1 factset.FSFile, f2 factset.FSFile, pkg factset.Package) f
 func createDBClient() *rds.Client {
 	testDSN := ""
 
-	if os.Getenv("RDS_TEST_DSN") != "" {
-		testDSN = os.Getenv("RDS_TEST_DSN")
+	if os.Getenv("RDS_DSN") != "" {
+		testDSN = os.Getenv("RDS_DSN")
+	} else {
+		testDSN = "root:@/test"
 	}
-	//log.Infof("Client: %s %s %s %s", testHost, testUser, testPass, testName)
+
 	dbClient, _ := rds.NewClient(testDSN)
 	return dbClient
 }
@@ -118,4 +123,8 @@ func dropTable(dbClient *rds.Client, tables ...string) {
 	}
 	query := "DROP TABLE " + strings.Join(tables, ", ")
 	dbClient.DB.Exec(query)
+}
+
+func removeMetadataTables(dbClient *rds.Client) {
+	dbClient.DB.Exec(`DROP TABLE IF EXISTS metadata_package_version, metadata_table_version`)
 }

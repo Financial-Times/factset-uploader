@@ -9,10 +9,11 @@ import (
 	"strings"
 
 	"fmt"
+	"io/ioutil"
+
 	"github.com/Financial-Times/factset-uploader/factset"
 	"github.com/Financial-Times/factset-uploader/rds"
 	log "github.com/sirupsen/logrus"
-	"io/ioutil"
 )
 
 type Service struct {
@@ -100,7 +101,8 @@ func (s *Service) doFullLoad(pkg factset.Package) error {
 		return err
 	}
 
-	if currentLoadedFileMetadata.PackageVersion.FeedVersion == latestFile.Version.FeedVersion && currentLoadedFileMetadata.PackageVersion.Sequence > latestFile.Version.Sequence {
+	if currentLoadedFileMetadata.PackageVersion.FeedVersion == 0 ||
+		(currentLoadedFileMetadata.PackageVersion.FeedVersion == latestFile.Version.FeedVersion && currentLoadedFileMetadata.PackageVersion.Sequence > latestFile.Version.Sequence) {
 
 		localFile, err := s.factset.Download(latestFile)
 		if err != nil {
@@ -125,12 +127,13 @@ func (s *Service) doFullLoad(pkg factset.Package) error {
 				lazyErr = err
 			}
 		}
+
+		// Update the package metadata, has the schema changed though?
 	} else {
 		log.Info("More recent file has already been loaded into db")
 	}
 
-	log.Error(lazyErr)
-	return nil
+	return lazyErr
 }
 
 func getTableFromFilename(filename string) string {
