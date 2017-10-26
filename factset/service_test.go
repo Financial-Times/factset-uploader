@@ -103,20 +103,20 @@ func Test_GetSchemaInfo(t *testing.T) {
 			1,
 		},
 		{
+			"Errors when no schema to process",
+			"../fixtures/datafeeds/documents/docs_missingSchema",
+			nil,
+			"missingSchema",
+			errors.New("There was no schema to process"),
+			-1,
+			-1,
+		},
+		{
 			"Error when directory does not exist",
 			"../fixtures/datafeeds/documents/non_existent",
 			errors.New("no such file or directory"),
 			"non_existent",
 			nil,
-			11,
-			1,
-		},
-		{
-			"Error when directory has no files",
-			"../fixtures/datafeeds/documents/docs_emptyDir",
-			nil,
-			"emptyDir",
-			errors.New("Could not process schema"),
 			11,
 			1,
 		},
@@ -132,7 +132,7 @@ func Test_GetSchemaInfo(t *testing.T) {
 				fs := &Service{&MockSftpClient{files, d.readDirErr}, "", "../fixtures/datafeeds"}
 				pack := Package{Dataset: d.dataset}
 				pv, err := fs.GetSchemaInfo(pack)
-				if d.dataset == "emptyDir" {
+				if d.dataset == "emptyDir" || d.dataset == "missingSchema" {
 					assert.Error(t, err, d.schemaErr, fmt.Sprintf("Test: %s failed, directory is empty should should not read schema", d.testName))
 					assert.Contains(t, err.Error(), d.schemaErr.Error(), fmt.Sprintf("Test: %s failed, mismatched error codes", d.testName))
 				} else {
@@ -143,6 +143,19 @@ func Test_GetSchemaInfo(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_GetSchemaInfo_EmptyDir(t *testing.T) {
+	var directory = "../fixtures/datafeeds/documents/docs_emptyDir"
+	os.Mkdir(directory, 0700)
+	files, err := ioutil.ReadDir(directory)
+	assert.NoError(t, err, fmt.Sprintf("Test: %s failed, should read file with no error", "Error when directory has no files"))
+	fs := &Service{&MockSftpClient{files, nil}, "", "../fixtures/datafeeds"}
+	pack := Package{Dataset: "ppl"}
+	_, err = fs.GetSchemaInfo(pack)
+	assert.Error(t, err, "Test failed, directory should be empty")
+	assert.Contains(t, err.Error(), "Directory had no files to read", "Test failed, mismatched error codes")
+	defer os.Remove(directory)
 }
 
 func Test_GetLatestFile(t *testing.T) {
@@ -177,30 +190,6 @@ func Test_GetLatestFile(t *testing.T) {
 			"nonExistent",
 			false,
 			nil,
-			"",
-			"",
-			0,
-			0,
-		},
-		{
-			"Error on empty folder directory",
-			"../fixtures/datafeeds/people/ppl_test/ppl_emptyDir",
-			nil,
-			"emptyDir",
-			false,
-			errors.New("No valid files"),
-			"",
-			"",
-			0,
-			0,
-		},
-		{
-			"Error on nested folder directory",
-			"../fixtures/datafeeds/people/ppl_test/ppl_nestedDirectory",
-			nil,
-			"nestedDirectory",
-			false,
-			errors.New("Failed to extract file info from ftp server"),
 			"",
 			"",
 			0,
@@ -281,15 +270,31 @@ func Test_GetLatestFile(t *testing.T) {
 	}
 }
 
-func Test_Download1(t *testing.T) {
-	ftpFile := FSFile{Name: "ppl_test_v1_full_1234.zip", Path: "../fixtures/datafeeds/people/ppl_test/ppl_singleZip", Version: PackageVersion{FeedVersion: 1, Sequence: 1234}, IsFull: true}
-	fs := &Service{&MockSftpClient{}, ".", "../fixtures/datafeeds"}
-	fmt.Printf("File name is %s\n", ftpFile.Name)
-	fmt.Printf("File path is %s\n", ftpFile.Path)
-	fsFile, err := fs.Download(ftpFile)
-	assert.NotNil(t, fsFile, "Should not be nil...")
-	assert.NoError(t, err, fmt.Sprintf("Test: %s failed, did not copy file to current directory", "Test_Download"))
-	defer fs.client.Close()
+func Test_GetLatestFile_EmptyDirectory(t *testing.T) {
+	var directory = "../fixtures/datafeeds/people/ppl_test/ppl_emptyDir"
+	os.Mkdir(directory, 0700)
+	files, err := ioutil.ReadDir(directory)
+	assert.NoError(t, err, fmt.Sprintf("Test: %s failed, should read file with no error", "Error when directory has no files"))
+	fs := &Service{&MockSftpClient{files, nil}, "", "../fixtures/datafeeds"}
+	pack := Package{Dataset: "ppl"}
+	_, err = fs.GetLatestFile(pack, true)
+	assert.Error(t, err, "Test failed, directory should be empty")
+	assert.Contains(t, err.Error(), "Directory had no files to read", "Test failed, mismatched error codes")
+	defer os.Remove(directory)
+}
+
+func Test_GetLatestFile_NestedDirectory(t *testing.T) {
+	var directory = "../fixtures/datafeeds/people/ppl_test/ppl_nestedDir"
+	os.Mkdir(directory, 0700)
+	os.Mkdir(directory + "/evenMoreNestedDirectory", 0700)
+	files, err := ioutil.ReadDir(directory)
+	assert.NoError(t, err, fmt.Sprintf("Test: %s failed, should read file with no error", "Error when directory has no files"))
+	fs := &Service{&MockSftpClient{files, nil}, "", "../fixtures/datafeeds"}
+	pack := Package{Dataset: "ppl"}
+	_, err = fs.GetLatestFile(pack, true)
+	assert.Error(t, err, "Test failed, directory should be empty")
+	assert.Contains(t, err.Error(), "Failed to extract file info from ftp server", "Test failed, mismatched error codes")
+	defer os.RemoveAll(directory)
 }
 
 func Test_Download(t *testing.T) {

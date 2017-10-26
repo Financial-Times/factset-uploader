@@ -43,6 +43,9 @@ func (s *Service) GetSchemaInfo(pkg Package) (*PackageVersion, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(files) == 0 {
+		return nil, errors.New("Directory had no files to read")
+	}
 
 	var latestSchema = &PackageVersion{-1, -1}
 
@@ -50,8 +53,7 @@ func (s *Service) GetSchemaInfo(pkg Package) (*PackageVersion, error) {
 		name := file.Name()[:strings.LastIndex(file.Name(), ".")]
 
 		splitName := strings.Split(name, "_")
-
-		if splitName[2] == "docs" {
+		if strings.Compare(splitName[2], "docs") == 0 {
 			continue
 		}
 
@@ -65,8 +67,9 @@ func (s *Service) GetSchemaInfo(pkg Package) (*PackageVersion, error) {
 			}
 		}
 	}
+
 	if latestSchema == nil || latestSchema.FeedVersion == -1 || latestSchema.Sequence == -1 {
-		return nil, errors.New("Could not process schema")
+		return nil, errors.New("There was no schema to process")
 	}
 	return latestSchema, nil
 }
@@ -77,12 +80,12 @@ func (s *Service) GetLatestFile(pkg Package, isFull bool) (FSFile, error) {
 	var outFile FSFile
 
 	pathToFiles := s.ftpServerBaseDir + fmt.Sprintf("/%s/%s", pkg.FSPackage, pkg.Product)
-	files, err := s.client.ReadDir(outFile.Path)
+	files, err := s.client.ReadDir(pathToFiles)
 	if err != nil {
 		return outFile, err
 	}
 	if len(files) == 0 {
-		return outFile, errors.New("No valid files")
+		return outFile, errors.New("Directory had no files to read")
 	}
 
 	fsFiles := transformFileInfo(pkg.Product, files, isFull)
