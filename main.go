@@ -36,7 +36,7 @@ func main() {
 
 	logLevel := app.String(cli.StringOpt{
 		Name:   "logLevel",
-		Value:  "INFO",
+		Value:  "info",
 		Desc:   "Log level",
 		EnvVar: "LOG_LEVEL",
 	})
@@ -70,14 +70,14 @@ func main() {
 	packages := app.String(cli.StringOpt{
 		Name:   "packages",
 		Value:  "",
-		Desc:   "List of packages to process (dataset,package,product,feedVersion)",
+		Desc:   "List of packages to process (dataset,package,product,feedVersion) separated by a semicolon",
 		EnvVar: "PACKAGES",
 	})
 
 	workspace := app.String(cli.StringOpt{
 		Name:   "workspace",
-		Value:  "",
-		Desc:   "Location to be used to download and process files from",
+		Value:  "/vol/factset",
+		Desc:   "Location to be used to download and process files from, should end in 'factset'. This directory will be cleared down and recreated on application start so be very careful",
 		EnvVar: "WORKSPACE",
 	})
 
@@ -103,25 +103,30 @@ func main() {
 	app.Command("run", "Runs the uploader", func(app *cli.Cmd) {
 
 		app.Action = func() {
+			splitConfig := strings.Split(*workspace, "/")
+			if splitConfig[len(splitConfig) - 1] != "factset" {
+				log.Fatal("Specified workspace is not valid as highest level folder is not 'factset'")
+				return
+			}
 			factsetService, err := factset.NewService(*factsetUser, *factsetKey, *factsetFTP, *factsetPort, *workspace)
 			if err != nil {
-				log.Error(err)
+				log.Fatal(err)
 				return
 			}
 
 			rdsService, err := rds.NewClient(*rdsDSN)
 			if err != nil {
-				log.Error(err)
+				log.Fatal(err)
 				return
 			}
 
 			config, err := convertConfig(*packages)
 			if err != nil {
-				log.Error(err)
+				log.Fatal(err)
 				return
 			}
 
-			factsetLoader := loader.NewService(config, rdsService, factsetService)
+			factsetLoader := loader.NewService(config, rdsService, factsetService, *workspace)
 			factsetLoader.LoadPackages()
 		}
 	})
@@ -140,7 +145,7 @@ func convertConfig(configString string) (loader.Config, error) {
 	for _, pkg := range splitConfig {
 		splitPkg := strings.Split(pkg, ",")
 		if len(splitPkg) != 4 {
-			return loader.Config{}, errors.New("package config has the wrong number of values")
+			return loader.Config{}, errors.New("Package config is incorrectly configured; it has the wrong number of values. See readme for instructions")
 		}
 
 		version, _ := strconv.Atoi(splitPkg[3])

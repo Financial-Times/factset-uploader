@@ -10,50 +10,11 @@ import (
 	"testing"
 )
 
-type MockSftpClient struct {
-	files []os.FileInfo
-	err   error
-}
-
-func (m *MockSftpClient) ReadDir(dir string) ([]os.FileInfo, error) {
-	return m.files, m.err
-}
-
-func (m *MockSftpClient) Download(path string, dest string) error {
-	if m.err == nil {
-		m.err = copyFile(path)
-	}
-	return m.err
-}
-
-func (m *MockSftpClient) Close() {
-	os.Remove("./ppl_test_v1_full_1234.zip")
-}
-
-func copyFile(path string) error {
-	srcFile, err := os.Open(path + "/ppl_test_v1_full_1234.zip")
-	if err != nil {
-		return err
-	}
-	defer srcFile.Close()
-
-	destFile, err := os.Create("ppl_test_v1_full_1234.zip")
-	if err != nil {
-		return err
-	}
-	defer destFile.Close()
-
-	_, err = io.Copy(destFile, srcFile)
-	if err != nil {
-		return err
-	}
-
-	err = destFile.Sync()
-	if err != nil {
-		return err
-	}
-
-	return nil
+var pkg = Package{
+	Dataset:     "ppl",
+	FSPackage:   "people",
+	Product:     "ppl_test",
+	FeedVersion: 1,
 }
 
 func Test_GetSchemaInfo(t *testing.T) {
@@ -107,7 +68,7 @@ func Test_GetSchemaInfo(t *testing.T) {
 			"../fixtures/datafeeds/documents/docs_missingSchema",
 			nil,
 			"missingSchema",
-			errors.New("There was no schema to process"),
+			errors.New("No valid schema found in: "),
 			-1,
 			-1,
 		},
@@ -130,8 +91,7 @@ func Test_GetSchemaInfo(t *testing.T) {
 			} else {
 				assert.NoError(t, err, fmt.Sprintf("Test: %s failed, should read file with no error", d.testName))
 				fs := &Service{&MockSftpClient{files, d.readDirErr}, "", "../fixtures/datafeeds"}
-				pack := Package{Dataset: d.dataset}
-				pv, err := fs.GetSchemaInfo(pack)
+				pv, err := fs.GetSchemaInfo(pkg)
 				if d.dataset == "emptyDir" || d.dataset == "missingSchema" {
 					assert.Error(t, err, d.schemaErr, fmt.Sprintf("Test: %s failed, directory is empty should should not read schema", d.testName))
 					assert.Contains(t, err.Error(), d.schemaErr.Error(), fmt.Sprintf("Test: %s failed, mismatched error codes", d.testName))
@@ -151,14 +111,14 @@ func Test_GetSchemaInfo_EmptyDir(t *testing.T) {
 	files, err := ioutil.ReadDir(directory)
 	assert.NoError(t, err, fmt.Sprintf("Test: %s failed, should read file with no error", "Error when directory has no files"))
 	fs := &Service{&MockSftpClient{files, nil}, "", "../fixtures/datafeeds"}
-	pack := Package{Dataset: "ppl"}
-	_, err = fs.GetSchemaInfo(pack)
+	_, err = fs.GetSchemaInfo(pkg)
 	assert.Error(t, err, "Test failed, directory should be empty")
-	assert.Contains(t, err.Error(), "Directory had no files to read", "Test failed, mismatched error codes")
+	assert.Contains(t, err.Error(), "No schema found in: ", "Test failed, unexpected error was returned")
 	defer os.Remove(directory)
 }
 
 func Test_GetLatestFile(t *testing.T) {
+
 	testCases := []struct {
 		testName            string
 		testDirectory       string
@@ -253,8 +213,7 @@ func Test_GetLatestFile(t *testing.T) {
 			} else {
 				assert.NoError(t, err, fmt.Sprintf("Test: %s failed, should read file with no error", d.testName))
 				fs := &Service{&MockSftpClient{files, d.readDirErr}, "", "../fixtures/datafeeds"}
-				pack := Package{Dataset: "ppl", FSPackage: "people", Product: "ppl_test", FeedVersion: 1}
-				fsFile, err := fs.GetLatestFile(pack, d.isFullLoad)
+				fsFile, err := fs.GetLatestFile(pkg, d.isFullLoad)
 				if d.fileSuffix == "emptyDir" || d.fileSuffix == "nestedDirectory" {
 					assert.Error(t, err, d.schemaErr, fmt.Sprintf("Test: %s failed, directory is empty/nested should should not read file", d.testName))
 					assert.Contains(t, err.Error(), d.schemaErr.Error(), fmt.Sprintf("Test: %s failed, mismatched error codes", d.testName))
@@ -276,10 +235,9 @@ func Test_GetLatestFile_EmptyDirectory(t *testing.T) {
 	files, err := ioutil.ReadDir(directory)
 	assert.NoError(t, err, fmt.Sprintf("Test: %s failed, should read file with no error", "Error when directory has no files"))
 	fs := &Service{&MockSftpClient{files, nil}, "", "../fixtures/datafeeds"}
-	pack := Package{Dataset: "ppl"}
-	_, err = fs.GetLatestFile(pack, true)
+	_, err = fs.GetLatestFile(pkg, true)
 	assert.Error(t, err, "Test failed, directory should be empty")
-	assert.Contains(t, err.Error(), "Directory had no files to read", "Test failed, mismatched error codes")
+	assert.Contains(t, err.Error(), "No data archives found in: ../fixtures/datafeeds/people/ppl_test", "Test failed, returned unexpected error")
 	defer os.Remove(directory)
 }
 
@@ -290,10 +248,14 @@ func Test_GetLatestFile_NestedDirectory(t *testing.T) {
 	files, err := ioutil.ReadDir(directory)
 	assert.NoError(t, err, fmt.Sprintf("Test: %s failed, should read file with no error", "Error when directory has no files"))
 	fs := &Service{&MockSftpClient{files, nil}, "", "../fixtures/datafeeds"}
-	pack := Package{Dataset: "ppl"}
-	_, err = fs.GetLatestFile(pack, true)
+	//Full load error
+	_, err = fs.GetLatestFile(pkg, true)
 	assert.Error(t, err, "Test failed, directory should be empty")
-	assert.Contains(t, err.Error(), "Failed to extract file info from ftp server", "Test failed, mismatched error codes")
+	assert.Contains(t, err.Error(), "No valid Full files found in: ../fixtures/datafeeds/people/ppl_test", "Test failed, mismatched error codes")
+	//Delta load error
+	_, err = fs.GetLatestFile(pkg, false)
+	assert.Error(t, err, "Test failed, directory should be empty")
+	assert.Contains(t, err.Error(), "No valid Delta files found in: ../fixtures/datafeeds/people/ppl_test", "Test failed, mismatched error codes")
 	defer os.RemoveAll(directory)
 }
 
@@ -319,7 +281,7 @@ func Test_Download(t *testing.T) {
 		t.Run(d.testName, func(t *testing.T) {
 			ftpFile := FSFile{Name: "ppl_test_v1_full_1234.zip", Path: "../fixtures/datafeeds/people/ppl_test/ppl_singleZip", Version: PackageVersion{FeedVersion: 1, Sequence: 1234}, IsFull: true}
 			fs := &Service{&MockSftpClient{err: d.expectedError}, ".", "../fixtures/datafeeds"}
-			fsFile, err := fs.Download(ftpFile)
+			fsFile, err := fs.Download(ftpFile, "ppl_test")
 			if d.expectedError != nil {
 				assert.Error(t, err, fmt.Sprintf("Test: %s failed, error whilst downloading/copying file to current directory", d.testName))
 			} else {
@@ -329,4 +291,50 @@ func Test_Download(t *testing.T) {
 			defer fs.client.Close()
 		})
 	}
+}
+
+type MockSftpClient struct {
+	files []os.FileInfo
+	err   error
+}
+
+func (m *MockSftpClient) ReadDir(dir string) ([]os.FileInfo, error) {
+	return m.files, m.err
+}
+
+func (m *MockSftpClient) Download(path string, dest string, product string) error {
+	if m.err == nil {
+		m.err = copyFile(path)
+	}
+	return m.err
+}
+
+func (m *MockSftpClient) Close() {
+	os.Remove("./ppl_test_v1_full_1234.zip")
+}
+
+func copyFile(path string) error {
+	srcFile, err := os.Open(path + "/ppl_test_v1_full_1234.zip")
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	destFile, err := os.Create("ppl_test_v1_full_1234.zip")
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, srcFile)
+	if err != nil {
+		return err
+	}
+
+	err = destFile.Sync()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -1,12 +1,23 @@
-# factset-uploader
+# Factset Uploader (factset-uploader)
 
-[![Circle CI](https://circleci.com/gh/Financial-Times/factset-uploader/tree/master.png?style=shield)](https://circleci.com/gh/Financial-Times/factset-uploader/tree/master)[![Go Report Card](https://goreportcard.com/badge/github.com/Financial-Times/factset-uploader)](https://goreportcard.com/report/github.com/Financial-Times/factset-uploader) [![Coverage Status](https://coveralls.io/repos/github/Financial-Times/factset-uploader/badge.svg)](https://coveralls.io/github/Financial-Times/factset-uploader)
+[![Circle CI](https://circleci.com/gh/Financial-Times/factset-uploader/tree/master.png?style=shield)](https://circleci.com/gh/Financial-Times/factset-uploader/tree/master)
+[![Go Report Card](https://goreportcard.com/badge/github.com/Financial-Times/factset-uploader)](https://goreportcard.com/report/github.com/Financial-Times/factset-uploader)
+[![Coverage Status](https://coveralls.io/repos/github/Financial-Times/factset-uploader/badge.svg)](https://coveralls.io/github/Financial-Times/factset-uploader)
 
 ## Introduction
 
-Downloads the factset files for orgs, people, financial instruments and fundamentals from Factset SFTP and sends them to S3.
+The service is run on a timer; on start up it cycles through each of the following steps for each configured package.
+Firstly it checks Factset SFTP server for most recent version of the package and associated schema.
+It then compares the current and loaded schema and reloads the schema and all package data if found to be out-of-date.
+If the schema is up-to-date then then only the data tables are completely reloaded.
+If an error occurs during a package load the error is logged and service moves on to the next package.
+Once complete the service shuts down.
 
-The service is run on a timer. It starts and then it checks for any new factset files. It extracts the files from the zips and then sends them to S3. Once complete the service shutdowns.
+In the future this service will handle delta files by updating data tables as opposed to doing full reloads.
+
+## Package
+
+### Data
 
 Currently there are several categories of files from factset that are of interest to us:
 
@@ -15,6 +26,15 @@ Currently there are several categories of files from factset that are of interes
 3. Reference information to provide on things such as controlled vocabulary i.e Role names
 4. Symbology information to provide other indentifiers such as the financial instruments
 5. Fundamental information to provide information on the financials for entities
+
+### Structure
+All configured packages should be separated by a ';' with each distinct package composed of four distinct parts separated by ',':
+
+        Dataset,FSPackage,Product,Version;...
+        
+        for example
+        
+        ppl,people,ppl_premium,1;...
 
 ## Installation
 Download the source code, dependencies and test dependencies:
@@ -53,7 +73,7 @@ _TODO: How do we run this locally with the whitelist on the Factset side, tunnel
         govendor test -v -race
         go install
 
-2. Run the binary (using the `help` flag to see the available optional arguments):
+4. Run the binary (using the `help` flag to see the available optional arguments):
 
         $GOPATH/bin/factset-uploader [--help]
 
@@ -68,6 +88,7 @@ Options:
         --factsetKey=xxx
         --factsetFTP=fts-sftp.factset.com
         --factsetPort=6671
+        --log-level=info
         --resources=/directory/without/version:zip_or_txt_file_to_download
 
 The resources argument specifies a comma separated list of archives and files within that archive to be downloaded from Factset FTP server.

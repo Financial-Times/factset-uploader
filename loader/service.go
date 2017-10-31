@@ -14,6 +14,8 @@ import (
 	"github.com/Financial-Times/factset-uploader/factset"
 	"github.com/Financial-Times/factset-uploader/rds"
 	log "github.com/sirupsen/logrus"
+	"time"
+	"strconv"
 )
 
 type Service struct {
@@ -23,31 +25,48 @@ type Service struct {
 	factset   factset.Servicer
 }
 
-func NewService(config Config, db *rds.Client, factset factset.Servicer) *Service {
+func NewService(config Config, db *rds.Client, factset factset.Servicer, workspace string) *Service {
 	return &Service{
 		config:    config,
 		db:        db,
 		factset:   factset,
-		workspace: "../",
+		workspace: workspace,
 	}
 }
 
 func (s *Service) LoadPackages() {
-	for _, v := range s.config.packages {
-		s.LoadPackage(v)
+	err := refreshWorkingDirectory(s.workspace)
+	if err == nil {
+		for _, v := range s.config.packages {
+			err := s.LoadPackage(v)
+			if err != nil {
+				log.WithFields(log.Fields{"fs_product": v.Product}).Errorf("An error occurred whilst loading product %s; moving on to next package", v.Product)
+			}
+		}
 	}
+}
+
+func refreshWorkingDirectory(workspace string) error {
+	if err := os.RemoveAll(workspace); err != nil {
+		log.WithError(err).Errorf("Could not delete directory %s, can not run application", workspace)
+		return err
+	}
+	if err := os.Mkdir(workspace, 0700); err != nil {
+		log.WithError(err).Errorf("Could not create directory %s, can not run application", workspace)
+		return err
+	}
+	return nil
 }
 
 func (s *Service) LoadPackage(pkg factset.Package) error {
 	// Get package metadata
-
-	pkgMetadata, err := s.db.GetPackageMetadata(pkg)
-	if err != sql.ErrNoRows {
-		// If no metadata, load schema and do full load.
-		s.reloadSchema(pkg)
-		return s.doFullLoad(pkg)
-	} else if err != nil {
+	if err := s.db.LoadMetadataTables(); err != nil {
 		return err
+	}
+	//TODO make custom error instead of sql error
+	currentlyLoadedPkgMetadata, currentPackageMetadataErr := s.db.GetPackageMetadata(pkg)
+	if currentPackageMetadataErr != nil && currentPackageMetadataErr != sql.ErrNoRows {
+		return currentPackageMetadataErr
 	}
 
 	schemaVersion, err := s.factset.GetSchemaInfo(pkg)
@@ -55,16 +74,55 @@ func (s *Service) LoadPackage(pkg factset.Package) error {
 		return err
 	}
 
-	if schemaVersion.FeedVersion > pkgMetadata.SchemaVersion.FeedVersion ||
-		(schemaVersion.FeedVersion == pkgMetadata.SchemaVersion.FeedVersion && schemaVersion.Sequence > pkgMetadata.SchemaVersion.Sequence) {
-		// If schema out of date, reload schema and do full load.
-		s.reloadSchema(pkg)
-		return s.doFullLoad(pkg)
+	var schemaLastUpdated time.Time
+	var packageLastUpdate time.Time
+	var loadedVersion factset.PackageVersion
+
+//TODO will only do full load if schema is out of date
+	if currentPackageMetadataErr == sql.ErrNoRows || schemaVersion.FeedVersion > currentlyLoadedPkgMetadata.SchemaVersion.FeedVersion ||
+		(schemaVersion.FeedVersion == currentlyLoadedPkgMetadata.SchemaVersion.FeedVersion && schemaVersion.Sequence > currentlyLoadedPkgMetadata.SchemaVersion.Sequence) {
+		// Schema out of date, reload schema and do full load.
+		if err = s.reloadSchema(pkg, schemaVersion); err != nil {
+			return err
+		}
+
+		schemaLastUpdated = time.Now()
+		if loadedVersion, err = s.doFullLoad(pkg, currentlyLoadedPkgMetadata); err != nil {
+			return err
+		}
+
+		packageLastUpdate = time.Now()
+	} else {
+		// Else do an incremental load.
+		if loadedVersion, err = s.doIncrementalLoad(pkg, currentlyLoadedPkgMetadata); err != nil {
+			return err
+		}
+
+		schemaLastUpdated = currentlyLoadedPkgMetadata.SchemaLoadedDate
+		packageLastUpdate = time.Now()
 	}
 
-	// Else do an incremental load.
-	return s.doIncrementalLoad(pkg)
+	//Update existing metadata
+	updatedPackageMetadata := &factset.PackageMetadata{
+		Package: pkg,
+		SchemaVersion: factset.PackageVersion{
+			FeedVersion: schemaVersion.FeedVersion,
+			Sequence:    schemaVersion.Sequence,
+		},
+		SchemaLoadedDate: schemaLastUpdated,
+		PackageVersion: factset.PackageVersion{
+			FeedVersion: loadedVersion.FeedVersion,
+			Sequence:    loadedVersion.Sequence,
+		},
+		PackageLoadedDate: packageLastUpdate,
+	}
 
+	if err := s.db.UpdateLoadedPackageVersion(updatedPackageMetadata); err != nil {
+		return err
+	} else {
+		log.WithFields(log.Fields{"fs_product": pkg.Product}).Infof("Updated product %s to data version v%d_%d", pkg.Product, currentlyLoadedPkgMetadata.PackageVersion.FeedVersion, currentlyLoadedPkgMetadata.PackageVersion.Sequence)
+	}
+	return nil
 }
 
 // Incremental load:
@@ -75,9 +133,9 @@ func (s *Service) LoadPackage(pkg factset.Package) error {
 //      Process delete files
 // Update table metadata
 // Clean up and update package metadata.
-func (s *Service) doIncrementalLoad(pkg factset.Package) error {
+func (s *Service) doIncrementalLoad(pkg factset.Package, currentPackageMetadata factset.PackageMetadata) (factset.PackageVersion, error) {
 	// TODO: Actually do an incremental load as described above.
-	return s.doFullLoad(pkg)
+	return s.doFullLoad(pkg, currentPackageMetadata)
 }
 
 // Full load:
@@ -86,85 +144,80 @@ func (s *Service) doIncrementalLoad(pkg factset.Package) error {
 // For each file, load into table.
 // Update metadata with new version.
 // Clean up and update package metadata.
-func (s *Service) doFullLoad(pkg factset.Package) error {
+func (s *Service) doFullLoad(pkg factset.Package, currentLoadedFileMetadata factset.PackageMetadata) (factset.PackageVersion, error) {
+	var loadedVersions factset.PackageVersion
 
-	var lazyErr error
-
-	latestFile, err := s.factset.GetLatestFile(pkg, true)
+	latestDataArchive, err := s.factset.GetLatestFile(pkg, true)
 	if err != nil {
-		return err
-	}
-
-	//Compare with metatdata
-	currentLoadedFileMetadata, err := s.db.GetPackageMetadata(pkg)
-	if err != nil {
-		return err
+		return loadedVersions, err
 	}
 
 	if currentLoadedFileMetadata.PackageVersion.FeedVersion == 0 ||
-		(currentLoadedFileMetadata.PackageVersion.FeedVersion == latestFile.Version.FeedVersion && currentLoadedFileMetadata.PackageVersion.Sequence > latestFile.Version.Sequence) {
+		(currentLoadedFileMetadata.PackageVersion.FeedVersion == latestDataArchive.Version.FeedVersion && currentLoadedFileMetadata.PackageVersion.Sequence < latestDataArchive.Version.Sequence) {
 
-		localFile, err := s.factset.Download(latestFile)
+		localDataArchive, err := s.factset.Download(latestDataArchive, pkg.Product)
 		if err != nil {
-			return err
+			return loadedVersions, err
 		}
 
-		filenames, err := s.unzipFile(localFile)
-		log.Info(filenames)
+		localDataFiles, err := s.unzipFile(localDataArchive, pkg.Product)
 		if err != nil {
-			return err
+			return loadedVersions, err
 		}
 
-		for _, fn := range filenames {
-			tableName := getTableFromFilename(fn)
-			err = s.db.LoadTable(fn, tableName)
-			if lazyErr == nil && err != nil {
-				lazyErr = err
-				continue
+		for _, file := range localDataFiles {
+			tableName := getTableFromFilename(file)
+			err = s.db.LoadTable(file, tableName)
+			if err != nil {
+				log.WithError(err).WithFields(log.Fields{"fs_product": pkg.Product}).Error("Error whilst loading table %s with data from file %s", tableName, file)
+				return loadedVersions, err
 			}
-			err = s.db.UpdateLoadedTableVersion(tableName, latestFile.Version)
-			if lazyErr == nil && err != nil {
-				lazyErr = err
+
+			err = s.db.UpdateLoadedTableVersion(tableName, latestDataArchive.Version, pkg.Product)
+			if err != nil {
+				return loadedVersions, err
 			}
+
+			loadedVersions = latestDataArchive.Version
+			log.WithFields(log.Fields{"fs_product": pkg.Product}).Infof("Updated table %s with data version v%d_%d", tableName, loadedVersions.FeedVersion, loadedVersions.Sequence)
 		}
 
 		// Update the package metadata, has the schema changed though?
 	} else {
-		log.Info("More recent file has already been loaded into db")
+		log.Infof("%s data is up-to-date as version v%d_%d has already been loaded into db", pkg.Product, currentLoadedFileMetadata.PackageVersion.FeedVersion, currentLoadedFileMetadata.PackageVersion.Sequence)
+		loadedVersions = currentLoadedFileMetadata.PackageVersion
 	}
 
-	return lazyErr
+	return loadedVersions, err
 }
 
 func getTableFromFilename(filename string) string {
 	return filename[strings.LastIndex(filename, "/")+1 : strings.LastIndex(filename, ".")]
 }
 
-func (s *Service) unzipFile(file *os.File) ([]string, error) {
-
+//TODO look into this. is it necessary
+func (s *Service) unzipFile(file *os.File, product string) ([]string, error) {
 	var filenames []string
 
 	zipReader, err := zip.OpenReader(file.Name())
 	if err != nil {
+		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Could not open archive: %s", file.Name())
 		return []string{}, err
 	}
 	defer zipReader.Close()
 
 	for _, f := range zipReader.File {
-
 		fpath, _ := filepath.Abs(filepath.Join(s.workspace, f.Name))
-
-		log.Info(fpath)
 
 		err = copyFile(f, fpath)
 		if err != nil {
+			log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Could not copy %s to %s", file.Name(), s.workspace)
 			return []string{}, err
 		}
 		filenames = append(filenames, fpath)
 	}
 
 	return filenames, nil
-
 }
 
 func copyFile(srcFile *zip.File, dest string) error {
@@ -207,59 +260,46 @@ func copyFile(srcFile *zip.File, dest string) error {
 // Delete all tables with applicable prefix
 // Download new schema and unzip
 // Run new table creation script - ent_v1_table_generation_statements.sql
-func (s *Service) reloadSchema(pkg factset.Package) error {
+func (s *Service) reloadSchema(pkg factset.Package, schemaVersion *factset.PackageVersion) error {
+	if err := s.db.DropTablesWithDataset(pkg.Dataset, pkg.Product); err != nil {
+		return err
+	}
 
-	err := s.db.DropTablesWithPrefix(pkg.Dataset)
+	schemaFileDetails := s.getSchemaDetails(pkg, schemaVersion)
+	schemaFileArchive, err := s.factset.Download(*schemaFileDetails, pkg.Product)
 	if err != nil {
 		return err
 	}
 
-	fsfile, err := s.downloadSchema(pkg)
+	schemaFiles, err := s.unzipFile(schemaFileArchive, pkg.Product)
 	if err != nil {
 		return err
 	}
 
-	zipFile, err := s.factset.Download(*fsfile)
-
-	if err != nil {
-		return err
-	}
-
-	fileNames, err := s.unzipFile(zipFile)
-	if err != nil {
-		return err
-	}
-
-	for _, file := range fileNames {
+	for _, file := range schemaFiles {
 		if strings.HasSuffix(file, ".sql") {
 			fileContents, err := ioutil.ReadFile(file)
 			if err != nil {
+				log.WithError(err).WithFields(log.Fields{"fs_product": pkg.Product}).Error("Could not read file: %s", file)
 				return err
 			}
-			err = s.db.CreateTablesFromSchema(fileContents)
+			err = s.db.CreateTablesFromSchema(fileContents, pkg.Product)
 			if err != nil {
 				return err
+			} else {
+				log.WithFields(log.Fields{"fs_product": pkg.Product}).Infof("Updated schema for product %s to version v%d_%d", pkg.Product, schemaVersion.FeedVersion, schemaVersion.Sequence)
 			}
 		}
 	}
-
 	return nil
 }
 
-func (s *Service) downloadSchema(pkg factset.Package) (*factset.FSFile, error) {
-	pkgVersion, err := s.factset.GetSchemaInfo(pkg)
-
-	if err != nil {
-		return &factset.FSFile{}, err
-	}
-
-	fileName := fmt.Sprintf("%s_%s_schema_%s.zip", pkg.Dataset, pkgVersion.FeedVersion, pkgVersion.Sequence)
-
+func (s *Service) getSchemaDetails(pkg factset.Package, schemaVersion *factset.PackageVersion) (*factset.FSFile) {
+	fileName := fmt.Sprintf("%s_%s_schema_%s.zip", pkg.Dataset, "v" + strconv.Itoa(schemaVersion.FeedVersion), strconv.Itoa(schemaVersion.Sequence))
 	return &factset.FSFile{
 		Name:    fileName,
 		Path:    fmt.Sprintf("/datafeeds/documents/docs_%s/%s", pkg.Dataset, fileName),
 		IsFull:  false,
-		Version: *pkgVersion,
-	}, nil
-
+		Version: *schemaVersion,
+	}
 }
