@@ -6,11 +6,11 @@ import (
 
 	"strings"
 
+	"errors"
 	"github.com/Financial-Times/factset-uploader/factset"
 	"github.com/Financial-Times/factset-uploader/rds"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"errors"
 )
 
 var standardSchema = factset.PackageVersion{
@@ -41,13 +41,13 @@ var filesInDirectory = []factset.FSFile{
 }
 
 var stalePackageMetadata = factset.PackageMetadata{
-	Package: standardPkg,
-	SchemaVersion: factset.PackageVersion{FeedVersion: 1, Sequence: 1},
+	Package:        standardPkg,
+	SchemaVersion:  factset.PackageVersion{FeedVersion: 1, Sequence: 1},
 	PackageVersion: factset.PackageVersion{FeedVersion: 1, Sequence: 1},
 }
 var freshPackageMetadata = factset.PackageMetadata{
-	Package: standardPkg,
-	SchemaVersion: factset.PackageVersion{FeedVersion: 1, Sequence: 1},
+	Package:        standardPkg,
+	SchemaVersion:  factset.PackageVersion{FeedVersion: 1, Sequence: 1},
 	PackageVersion: factset.PackageVersion{FeedVersion: 1, Sequence: 1250},
 }
 
@@ -64,16 +64,16 @@ func Test_LoadPackage(t *testing.T) {
 	defer dbClient.DB.Close()
 
 	testCases := []struct {
-		testName            string
-		freshLoad			bool
-		mockIncrementalLoad bool
-		factsetService 		factset.Servicer
-		pkg					factset.Package
-		existingPackageMetadata factset.PackageMetadata
-		expectedError       error
-		expectedSchemaFeedVersion	int
-		expectedSchemaSequence	int
-		expectedPackageSequence int
+		testName                  string
+		freshLoad                 bool
+		mockIncrementalLoad       bool
+		factsetService            factset.Servicer
+		pkg                       factset.Package
+		existingPackageMetadata   factset.PackageMetadata
+		expectedError             error
+		expectedSchemaFeedVersion int
+		expectedSchemaSequence    int
+		expectedPackageSequence   int
 	}{
 		{
 			"Success loading package first time",
@@ -193,16 +193,16 @@ func Test_LoadPackage(t *testing.T) {
 
 func getFactsetService(fileList []factset.FSFile, packageVersion factset.PackageVersion, err error) factset.Servicer {
 	return &MockFactsetService{
-		fileList: fileList,
+		fileList:   fileList,
 		schemaInfo: packageVersion,
-		err: err,
+		err:        err,
 	}
 }
 
 type MockFactsetService struct {
 	fileList   []factset.FSFile
 	schemaInfo factset.PackageVersion
-	err error
+	err        error
 }
 
 func (s *MockFactsetService) GetSchemaInfo(pkg factset.Package) (*factset.PackageVersion, error) {

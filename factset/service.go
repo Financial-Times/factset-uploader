@@ -120,7 +120,7 @@ func (s *Service) GetLatestFile(pkg Package, isFull bool) (FSFile, error) {
 }
 
 func (s *Service) Download(file FSFile, product string) (*os.File, error) {
-	err := s.client.Download(file.Path, s.workspace + "/" + file.Name, product)
+	err := s.client.Download(file.Path, s.workspace+"/"+file.Name, product)
 	if err != nil {
 		return nil, err
 	}

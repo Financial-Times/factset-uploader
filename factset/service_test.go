@@ -244,7 +244,7 @@ func Test_GetLatestFile_EmptyDirectory(t *testing.T) {
 func Test_GetLatestFile_NestedDirectory(t *testing.T) {
 	var directory = "../fixtures/datafeeds/people/ppl_test/ppl_nestedDir"
 	os.Mkdir(directory, 0700)
-	os.Mkdir(directory + "/evenMoreNestedDirectory", 0700)
+	os.Mkdir(directory+"/evenMoreNestedDirectory", 0700)
 	files, err := ioutil.ReadDir(directory)
 	assert.NoError(t, err, fmt.Sprintf("Test: %s failed, should read file with no error", "Error when directory has no files"))
 	fs := &Service{&MockSftpClient{files, nil}, "", "../fixtures/datafeeds"}

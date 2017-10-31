@@ -104,7 +104,7 @@ func main() {
 
 		app.Action = func() {
 			splitConfig := strings.Split(*workspace, "/")
-			if splitConfig[len(splitConfig) - 1] != "factset" {
+			if splitConfig[len(splitConfig)-1] != "factset" {
 				log.Fatal("Specified workspace is not valid as highest level folder is not 'factset'")
 				return
 			}

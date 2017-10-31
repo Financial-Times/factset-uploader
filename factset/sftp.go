@@ -7,8 +7,8 @@ import (
 	"strconv"
 
 	"github.com/pkg/sftp"
-	"golang.org/x/crypto/ssh"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/crypto/ssh"
 )
 
 type sftpClient struct {

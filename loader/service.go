@@ -14,8 +14,8 @@ import (
 	"github.com/Financial-Times/factset-uploader/factset"
 	"github.com/Financial-Times/factset-uploader/rds"
 	log "github.com/sirupsen/logrus"
-	"time"
 	"strconv"
+	"time"
 )
 
 type Service struct {
@@ -78,7 +78,7 @@ func (s *Service) LoadPackage(pkg factset.Package) error {
 	var packageLastUpdate time.Time
 	var loadedVersion factset.PackageVersion
 
-//TODO will only do full load if schema is out of date
+	//TODO will only do full load if schema is out of date
 	if currentPackageMetadataErr == sql.ErrNoRows || schemaVersion.FeedVersion > currentlyLoadedPkgMetadata.SchemaVersion.FeedVersion ||
 		(schemaVersion.FeedVersion == currentlyLoadedPkgMetadata.SchemaVersion.FeedVersion && schemaVersion.Sequence > currentlyLoadedPkgMetadata.SchemaVersion.Sequence) {
 		// Schema out of date, reload schema and do full load.
@@ -294,8 +294,8 @@ func (s *Service) reloadSchema(pkg factset.Package, schemaVersion *factset.Packa
 	return nil
 }
 
-func (s *Service) getSchemaDetails(pkg factset.Package, schemaVersion *factset.PackageVersion) (*factset.FSFile) {
-	fileName := fmt.Sprintf("%s_%s_schema_%s.zip", pkg.Dataset, "v" + strconv.Itoa(schemaVersion.FeedVersion), strconv.Itoa(schemaVersion.Sequence))
+func (s *Service) getSchemaDetails(pkg factset.Package, schemaVersion *factset.PackageVersion) *factset.FSFile {
+	fileName := fmt.Sprintf("%s_%s_schema_%s.zip", pkg.Dataset, "v"+strconv.Itoa(schemaVersion.FeedVersion), strconv.Itoa(schemaVersion.Sequence))
 	return &factset.FSFile{
 		Name:    fileName,
 		Path:    fmt.Sprintf("/datafeeds/documents/docs_%s/%s", pkg.Dataset, fileName),
