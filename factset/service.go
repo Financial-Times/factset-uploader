@@ -1,18 +1,18 @@
 package factset
 
 import (
-	"errors"
 	"fmt"
-	"github.com/coreos/fleet/log"
 	"os"
 	"strconv"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type Servicer interface {
 	GetSchemaInfo(pkg Package) (*PackageVersion, error)
 	GetLatestFile(pkg Package, isFull bool) (FSFile, error)
-	Download(file FSFile) (*os.File, error)
+	Download(file FSFile, product string) (*os.File, error)
 }
 
 type Service struct {
@@ -39,12 +39,16 @@ func NewService(sftpUser, sftpKey, sftpAddress string, sftpPort int, workspace s
 }
 
 func (s *Service) GetSchemaInfo(pkg Package) (*PackageVersion, error) {
-	files, err := s.client.ReadDir(s.ftpServerBaseDir + schemaDir + fmt.Sprintf("/docs_%s/", pkg.Dataset))
+	schemaDirectory := s.ftpServerBaseDir + schemaDir + fmt.Sprintf("/docs_%s/", pkg.Dataset)
+	files, err := s.client.ReadDir(schemaDirectory)
 	if err != nil {
+		log.WithError(err).WithFields(log.Fields{"fs_product": pkg.Product}).Errorf("Error reading schema directory: %s", schemaDirectory)
 		return nil, err
 	}
 	if len(files) == 0 {
-		return nil, errors.New("Directory had no files to read")
+		err := fmt.Errorf("No schema found in: %s", schemaDirectory)
+		log.WithFields(log.Fields{"fs_product": pkg.Product}).Error(err)
+		return nil, err
 	}
 
 	var latestSchema = &PackageVersion{-1, -1}
@@ -69,7 +73,9 @@ func (s *Service) GetSchemaInfo(pkg Package) (*PackageVersion, error) {
 	}
 
 	if latestSchema == nil || latestSchema.FeedVersion == -1 || latestSchema.Sequence == -1 {
-		return nil, errors.New("There was no schema to process")
+		err := fmt.Errorf("No valid schema found in: %s", schemaDirectory)
+		log.WithFields(log.Fields{"fs_product": pkg.Product}).Error(err)
+		return nil, err
 	}
 	return latestSchema, nil
 }
@@ -77,62 +83,63 @@ func (s *Service) GetSchemaInfo(pkg Package) (*PackageVersion, error) {
 // Get list of available files for a package
 // Get files after given version for a package
 func (s *Service) GetLatestFile(pkg Package, isFull bool) (FSFile, error) {
-	var outFile FSFile
+	var mostRecentDataArchive FSFile
 
-	pathToFiles := s.ftpServerBaseDir + fmt.Sprintf("/%s/%s", pkg.FSPackage, pkg.Product)
-	files, err := s.client.ReadDir(pathToFiles)
+	fileDirectory := s.ftpServerBaseDir + fmt.Sprintf("/%s/%s", pkg.FSPackage, pkg.Product)
+	files, err := s.client.ReadDir(fileDirectory)
 	if err != nil {
-		return outFile, err
+		log.WithError(err).WithFields(log.Fields{"fs_product": pkg.Product}).Errorf("Error reading: %s", fileDirectory)
+		return mostRecentDataArchive, err
 	}
 	if len(files) == 0 {
-		return outFile, errors.New("Directory had no files to read")
+		err := fmt.Errorf("No data archives found in: %s", fileDirectory)
+		log.WithFields(log.Fields{"fs_product": pkg.Product}).Error(err)
+		return mostRecentDataArchive, err
 	}
 
-	fsFiles := transformFileInfo(pkg.Product, files, isFull)
+	fsFiles := filterAndExtractFileInfo(pkg.Product, files, isFull)
 	if len(fsFiles) == 0 {
-		return outFile, errors.New("Failed to extract file info from ftp server")
+		var fileType string
+		if isFull {
+			fileType = "Full"
+		} else {
+			fileType = "Delta"
+		}
+		err := fmt.Errorf("No valid %s files found in: %s", fileType, fileDirectory)
+		log.WithFields(log.Fields{"fs_product": pkg.Product}).Error(err)
+		return mostRecentDataArchive, err
 	}
 
 	for _, file := range fsFiles {
-		if file.Version.FeedVersion == pkg.FeedVersion && file.Version.Sequence > outFile.Version.Sequence {
-			outFile = file
+		if file.Version.FeedVersion == pkg.FeedVersion && file.Version.Sequence > mostRecentDataArchive.Version.Sequence {
+			mostRecentDataArchive = file
 		}
 	}
-	outFile.Path = pathToFiles
-	return outFile, nil
+	mostRecentDataArchive.Path = fileDirectory
+	return mostRecentDataArchive, nil
 }
 
-func (s *Service) Download(file FSFile) (*os.File, error) {
-	err := s.client.Download(file.Path, s.workspace+"/"+file.Name)
+func (s *Service) Download(file FSFile, product string) (*os.File, error) {
+	err := s.client.Download(file.Path, s.workspace+"/"+file.Name, product)
 	if err != nil {
 		return nil, err
 	}
 	localFile, err := os.Open(s.workspace + "/" + file.Name)
 	if err != nil {
+		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Could not open file: %s/%s", s.workspace, file.Name)
 		return nil, err
 	}
-
 	return localFile, nil
 }
 
-// ppl              ent                     dataset
-// people           entity                  package
-// ppl_premium      ent_entity_advanced     product
-
-//   /datafeeds/people/ppl_premium/ppl_premium_v1_full_1234.zip
-//   /datafeeds/people/ppl_premium/ppl_premium_v1_1234.zip
-//   /datafeeds/entity/ent_entity_advanced/ent_entity_advanced_v1_full_1234.zip
-//   /datafeeds/documents/docs_ppl
-//   /datafeeds/documents/docs_ppl/ppl_v1_schema_12.zip
-//   /datafeeds/edm/edm_premium/edm_premium_full_1972.zip
-//   /datafeeds/edm/edm_premium/edm_premium_1973.zip
-
-func transformFileInfo(product string, files []os.FileInfo, isFull bool) []FSFile {
+// Filters all files in directory into weekly/daily files based on isFull variable.
+// Saves feed version and sequence for remaining files for later comparison
+func filterAndExtractFileInfo(product string, files []os.FileInfo, isFull bool) []FSFile {
 	var outputFiles []FSFile
 
 	for _, file := range files {
 		if file.IsDir() {
-			log.Debugf("File %s is a directory...\n", file.Name())
+			log.WithFields(log.Fields{"fs_product": product}).Debugf("File %s is a directory, skipping", file.Name())
 			continue
 		}
 
