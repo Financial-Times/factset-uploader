@@ -25,7 +25,7 @@ func newSFTPClient(user, key, address string, port int) (*sftpClient, error) {
 
 	signer, err := ssh.ParsePrivateKey([]byte(key))
 	if err != nil {
-		log.WithError(err).Error("Could parse ssh key!")
+		log.WithError(err).Error("Could not parse ssh key!")
 		return nil, err
 	}
 
@@ -35,6 +35,7 @@ func newSFTPClient(user, key, address string, port int) (*sftpClient, error) {
 			Auth: []ssh.AuthMethod{
 				ssh.PublicKeys(signer),
 			},
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		},
 	)
 	if err != nil {
