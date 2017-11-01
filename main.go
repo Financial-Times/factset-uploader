@@ -43,15 +43,17 @@ func main() {
 	})
 
 	factsetUser := app.String(cli.StringOpt{
-		Name:   "factsetUsername",
-		Desc:   "Factset username",
-		EnvVar: "FACTSET_USER",
+		Name:      "factsetUsername",
+		Desc:      "Factset username",
+		EnvVar:    "FACTSET_USER",
+		HideValue: true,
 	})
 
 	factsetKey := app.String(cli.StringOpt{
-		Name:   "factsetKey",
-		Desc:   "Key to ssh key",
-		EnvVar: "FACTSET_KEY",
+		Name:      "factsetKey",
+		Desc:      "Key to ssh key",
+		EnvVar:    "FACTSET_KEY",
+		HideValue: true,
 	})
 
 	factsetFTP := app.String(cli.StringOpt{
@@ -83,9 +85,10 @@ func main() {
 	})
 
 	rdsDSN := app.String(cli.StringOpt{
-		Name:   "rdsDSN",
-		Desc:   "DSN to connect to the RDS e.g. user:pass@host/schema - it should not contain any parameters",
-		EnvVar: "RDS_DSN",
+		Name:      "rdsDSN",
+		Desc:      "DSN to connect to the RDS e.g. user:pass@host/schema - it should not contain any parameters",
+		EnvVar:    "RDS_DSN",
+		HideValue: true,
 	})
 
 	lvl, err := log.ParseLevel(*logLevel)
