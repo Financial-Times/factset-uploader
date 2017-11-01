@@ -36,6 +36,7 @@ func NewService(config Config, db *rds.Client, factset factset.Servicer, workspa
 }
 
 func (s *Service) LoadPackages() {
+	fmt.Printf("We got here 6!\n")
 	err := refreshWorkingDirectory(s.workspace)
 	if err == nil {
 		for _, v := range s.config.packages {
@@ -60,6 +61,7 @@ func refreshWorkingDirectory(workspace string) error {
 }
 
 func (s *Service) LoadPackage(pkg factset.Package) error {
+	fmt.Printf("We got here 7!\n")
 	// Get package metadata
 	if err := s.db.LoadMetadataTables(); err != nil {
 		return err
