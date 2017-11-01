@@ -54,8 +54,19 @@ _TODO: How do we run this locally with the whitelist on the Factset side, tunnel
     brew info mysql56
     OSX:
     ```
-    brew install mysql56
-    echo 'export PATH="/usr/local/opt/mysql@5.6/bin:$PATH"' >> ~/.bash_profile
+    $ brew install mysql@5.6
+    $ echo 'export PATH="/usr/local/opt/mysql@5.6/bin:$PATH"' >> ~/.bash_profile
+
+    $ ps -ef | grep mysql
+    /usr/local/opt/mysql@5.6/bin/mysqld --basedir=/usr/local/opt/mysql@5.6 --datadir=/usr/local/var/mysql --plugin-dir=/usr/local/opt/mysql@5.6/lib/plugin --log-error=ft-mw4758.ad.ft.com.err --pid-file=ft-mw4758.ad.ft.com.pid
+
+    # When you open SQL Workbench there should be a default localhost database that you can click on.
+    # We had some issues initially with this and we found that if you did the following it fixed it:
+
+    $ launchctl unload ~/Library/LaunchAgents/homebrew.mxcl.mysql.plist
+    $ brew remove mysql
+    $ rm -rf /usr/local/var/mysql/
+    $ brew install mysql@5.6
     ```
 
     Windows:

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"errors"
+
 	"github.com/Financial-Times/factset-uploader/factset"
 	"github.com/Financial-Times/factset-uploader/rds"
 	log "github.com/sirupsen/logrus"

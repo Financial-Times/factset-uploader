@@ -100,36 +100,33 @@ func main() {
 		"FACTSET_FTP":     *factsetFTP,
 	}).Infof("[Startup] %v is starting", *appName)
 
-	app.Command("run", "Runs the uploader", func(app *cli.Cmd) {
-
-		app.Action = func() {
-			splitConfig := strings.Split(*workspace, "/")
-			if splitConfig[len(splitConfig)-1] != "factset" {
-				log.Fatal("Specified workspace is not valid as highest level folder is not 'factset'")
-				return
-			}
-			factsetService, err := factset.NewService(*factsetUser, *factsetKey, *factsetFTP, *factsetPort, *workspace)
-			if err != nil {
-				log.Fatal(err)
-				return
-			}
-
-			rdsService, err := rds.NewClient(*rdsDSN)
-			if err != nil {
-				log.Fatal(err)
-				return
-			}
-
-			config, err := convertConfig(*packages)
-			if err != nil {
-				log.Fatal(err)
-				return
-			}
-
-			factsetLoader := loader.NewService(config, rdsService, factsetService, *workspace)
-			factsetLoader.LoadPackages()
+	app.Action = func() {
+		splitConfig := strings.Split(*workspace, "/")
+		if splitConfig[len(splitConfig)-1] != "factset" {
+			log.Fatal("Specified workspace is not valid as highest level folder is not 'factset'")
+			return
 		}
-	})
+		factsetService, err := factset.NewService(*factsetUser, *factsetKey, *factsetFTP, *factsetPort, *workspace)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+		rdsService, err := rds.NewClient(*rdsDSN)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+		config, err := convertConfig(*packages)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+		factsetLoader := loader.NewService(config, rdsService, factsetService, *workspace)
+		factsetLoader.LoadPackages()
+	}
 
 	err = app.Run(os.Args)
 	if err != nil {

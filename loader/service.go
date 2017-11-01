@@ -11,11 +11,12 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"strconv"
+	"time"
+
 	"github.com/Financial-Times/factset-uploader/factset"
 	"github.com/Financial-Times/factset-uploader/rds"
 	log "github.com/sirupsen/logrus"
-	"strconv"
-	"time"
 )
 
 type Service struct {
