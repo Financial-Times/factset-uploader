@@ -36,7 +36,6 @@ func NewService(config Config, db *rds.Client, factset factset.Servicer, workspa
 }
 
 func (s *Service) LoadPackages() {
-	fmt.Printf("We got here 6!\n")
 	err := refreshWorkingDirectory(s.workspace)
 	if err == nil {
 		for _, v := range s.config.packages {
@@ -46,22 +45,41 @@ func (s *Service) LoadPackages() {
 			}
 		}
 	}
+	return
 }
 
+//func refreshWorkingDirectory(workspace string) error {
+//	os.RemoveAll(workspace + "/*")
+//	if err := os.RemoveAll(workspace); err != nil {
+//		log.WithError(err).Errorf("Could not delete directory %s, can not run application", workspace)
+//		return err
+//	}
+//	if err := os.Mkdir(workspace, 0700); err != nil {
+//		log.WithError(err).Errorf("Could not create directory %s, can not run application", workspace)
+//		return err
+//	}
+//	return nil
+//}
+
 func refreshWorkingDirectory(workspace string) error {
-	if err := os.RemoveAll(workspace); err != nil {
-		log.WithError(err).Errorf("Could not delete directory %s, can not run application", workspace)
+	d, err := os.Open(workspace)
+	if err != nil {
 		return err
 	}
-	if err := os.Mkdir(workspace, 0700); err != nil {
-		log.WithError(err).Errorf("Could not create directory %s, can not run application", workspace)
+	defer d.Close()
+	names, err := d.Readdirnames(-1)
+	if err != nil {
 		return err
+	}
+	for _, name := range names {
+		if err = os.RemoveAll(filepath.Join(workspace, name)); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 func (s *Service) LoadPackage(pkg factset.Package) error {
-	fmt.Printf("We got here 7!\n")
 	// Get package metadata
 	if err := s.db.LoadMetadataTables(); err != nil {
 		return err

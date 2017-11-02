@@ -105,36 +105,32 @@ func main() {
 	}).Infof("[Startup] %v is starting", *appName)
 
 	app.Action = func() {
-		fmt.Printf("We got here 1!\n")
 		splitConfig := strings.Split(*workspace, "/")
 		if splitConfig[len(splitConfig)-1] != "factset" {
 			log.Fatal("Specified workspace is not valid as highest level folder is not 'factset'")
 			return
 		}
-		fmt.Printf("We got here 2!\n")
 		factsetService, err := factset.NewService(*factsetUser, *factsetKey, *factsetFTP, *factsetPort, *workspace)
 		if err != nil {
 			log.Fatal(err)
 			return
 		}
 
-		fmt.Printf("We got here 3!\n")
 		rdsService, err := rds.NewClient(*rdsDSN)
 		if err != nil {
 			log.Fatal(err)
 			return
 		}
 
-		fmt.Printf("We got here 4!\n")
 		config, err := convertConfig(*packages)
 		if err != nil {
 			log.Fatal(err)
 			return
 		}
 
-		fmt.Printf("We got here 5!\n")
 		factsetLoader := loader.NewService(config, rdsService, factsetService, *workspace)
 		factsetLoader.LoadPackages()
+		return
 	}
 
 	err = app.Run(os.Args)
