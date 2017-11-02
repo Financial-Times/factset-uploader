@@ -85,7 +85,7 @@ func (s *sftpClient) save(file *sftp.File, dest string, product string) error {
 	}
 	size := fileStat.Size()
 
-	log.WithFields(log.Fields{"fs_product": product}).Infof("Downloading %s from sftp server", dest, fileName)
+	log.WithFields(log.Fields{"fs_product": product}).Infof("Downloading %s from sftp server", fileName)
 	n, err := io.Copy(downFile, io.LimitReader(file, size))
 	if n != size || err != nil {
 		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Download stopped at [%d] when copying sftp file to %s/%s", n, dest, fileName)

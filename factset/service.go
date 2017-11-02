@@ -127,9 +127,9 @@ func (s *Service) Download(file FSFile, product string) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	localFile, err := os.Open(file.Path)
+	localFile, err := os.Open(s.workspace + file.Name)
 	if err != nil {
-		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Could not open file: %s", file.Path)
+		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Could not open file: %s", s.workspace + file.Name)
 		return nil, err
 	}
 	return localFile, nil
