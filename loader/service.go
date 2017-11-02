@@ -227,13 +227,13 @@ func (s *Service) unzipFile(file *os.File, product string) ([]string, error) {
 	for _, f := range zipReader.File {
 		fpath, _ := filepath.Abs(filepath.Join(s.workspace, f.Name))
 
-		err = copyFile(f, fpath)
-		if err != nil {
+		if err := copyFile(f, fpath); err != nil {
 			log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Could not copy %s to %s", file.Name(), s.workspace)
 			return []string{}, err
 		}
 		filenames = append(filenames, fpath)
 	}
+	fmt.Printf("There are %d files to load", filenames)
 
 	log.WithFields(log.Fields{"fs_product": product}).Debugf("Unzipped archive %s into %s", file.Name(), s.workspace)
 	return filenames, nil
