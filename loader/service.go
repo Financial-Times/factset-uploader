@@ -36,8 +36,10 @@ func NewService(config Config, db *rds.Client, factset factset.Servicer, workspa
 }
 
 func (s *Service) LoadPackages() {
+	fmt.Printf("We got here 4")
 	err := refreshWorkingDirectory(s.workspace)
 	if err == nil {
+		fmt.Printf("We got here 5")
 		for _, v := range s.config.packages {
 			err := s.LoadPackage(v)
 			if err != nil {
@@ -64,15 +66,18 @@ func (s *Service) LoadPackages() {
 func refreshWorkingDirectory(workspace string) error {
 	d, err := os.Open(workspace)
 	if err != nil {
+		log.WithError(err).Fatalf("Could not open directory %s, can not run application", workspace)
 		return err
 	}
 	defer d.Close()
 	names, err := d.Readdirnames(-1)
 	if err != nil {
+		log.WithError(err).Fatalf("Could not read directory %s, can not run application", workspace)
 		return err
 	}
 	for _, name := range names {
 		if err = os.RemoveAll(filepath.Join(workspace, name)); err != nil {
+			log.WithError(err).Fatalf("Could not clear down directory %s, can not run application", workspace)
 			return err
 		}
 	}
