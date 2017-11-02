@@ -99,10 +99,10 @@ func (s *Service) LoadPackage(pkg factset.Package) error {
 	var packageLastUpdate time.Time
 	var loadedVersion factset.PackageVersion
 
-	//TODO will only do full load if schema is out of date
+	//if schema is out of data, reload schema then do full load
+	//this will need to be reworked when delta are handled
 	if currentPackageMetadataErr == sql.ErrNoRows || schemaVersion.FeedVersion > currentlyLoadedPkgMetadata.SchemaVersion.FeedVersion ||
 		(schemaVersion.FeedVersion == currentlyLoadedPkgMetadata.SchemaVersion.FeedVersion && schemaVersion.Sequence > currentlyLoadedPkgMetadata.SchemaVersion.Sequence) {
-		// Schema out of date, reload schema and do full load.
 		if err = s.reloadSchema(pkg, schemaVersion); err != nil {
 			return err
 		}
@@ -114,7 +114,7 @@ func (s *Service) LoadPackage(pkg factset.Package) error {
 
 		packageLastUpdate = time.Now()
 	} else {
-		// Else do an incremental load.
+		// Else do an incremental load. which actually does a full load
 		if loadedVersion, err = s.doIncrementalLoad(pkg, currentlyLoadedPkgMetadata); err != nil {
 			return err
 		}

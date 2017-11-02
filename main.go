@@ -13,7 +13,6 @@ import (
 	"github.com/Financial-Times/factset-uploader/rds"
 	"github.com/jawher/mow.cli"
 	log "github.com/sirupsen/logrus"
-	"fmt"
 )
 
 const appDescription = "Downloads the factset files from Factset SFTP and sends them to S3"
