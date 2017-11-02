@@ -80,16 +80,19 @@ func refreshWorkingDirectory(workspace string) error {
 }
 
 func (s *Service) LoadPackage(pkg factset.Package) error {
+	log.WithFields(log.Fields{"fs_product": pkg.Product}).Infof("Processing %s package", pkg.Product)
 	// Get package metadata
 	if err := s.db.LoadMetadataTables(); err != nil {
 		return err
 	}
 	//TODO make custom error instead of sql error
+	log.WithFields(log.Fields{"fs_product": pkg.Product}).Debugf("Querying db for current metadata for package: %s", pkg.Product)
 	currentlyLoadedPkgMetadata, currentPackageMetadataErr := s.db.GetPackageMetadata(pkg)
 	if currentPackageMetadataErr != nil && currentPackageMetadataErr != sql.ErrNoRows {
 		return currentPackageMetadataErr
 	}
 
+	log.WithFields(log.Fields{"fs_product": pkg.Product}).Debugf("Searching factset for most recent package: %s", pkg.Product)
 	schemaVersion, err := s.factset.GetSchemaInfo(pkg)
 	if err != nil {
 		return err
@@ -103,6 +106,7 @@ func (s *Service) LoadPackage(pkg factset.Package) error {
 	//this will need to be reworked when delta are handled
 	if currentPackageMetadataErr == sql.ErrNoRows || schemaVersion.FeedVersion > currentlyLoadedPkgMetadata.SchemaVersion.FeedVersion ||
 		(schemaVersion.FeedVersion == currentlyLoadedPkgMetadata.SchemaVersion.FeedVersion && schemaVersion.Sequence > currentlyLoadedPkgMetadata.SchemaVersion.Sequence) {
+		log.WithFields(log.Fields{"fs_product": pkg.Product}).Debugf("Schema is out of date")
 		if err = s.reloadSchema(pkg, schemaVersion); err != nil {
 			return err
 		}
@@ -216,7 +220,6 @@ func getTableFromFilename(filename string) string {
 	return filename[strings.LastIndex(filename, "/")+1 : strings.LastIndex(filename, ".")]
 }
 
-//TODO look into this. is it necessary
 func (s *Service) unzipFile(file *os.File, product string) ([]string, error) {
 	var filenames []string
 
@@ -282,10 +285,10 @@ func copyFile(srcFile *zip.File, dest string) error {
 // Download new schema and unzip
 // Run new table creation script - ent_v1_table_generation_statements.sql
 func (s *Service) reloadSchema(pkg factset.Package, schemaVersion *factset.PackageVersion) error {
+	log.WithFields(log.Fields{"fs_product": pkg.Product}).Debugf("Reloading schema for package: %s", pkg.Product)
 	if err := s.db.DropTablesWithDataset(pkg.Dataset, pkg.Product); err != nil {
 		return err
 	}
-
 	schemaFileDetails := s.getSchemaDetails(pkg, schemaVersion)
 	schemaFileArchive, err := s.factset.Download(*schemaFileDetails, pkg.Product)
 	if err != nil {

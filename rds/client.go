@@ -206,6 +206,7 @@ func (c *Client) LoadMetadataTables() error {
 		log.WithError(err).Error("Error running query to create metadata_table_version table")
 		return err
 	}
+	log.Debugf("Created metadata tables")
 	return nil
 }
 
@@ -231,46 +232,4 @@ func (c *Client) CreateTablesFromSchema(contents []byte, product string) error {
 		}
 	}
 	return nil
-}
-
-//TODO move to test class
-//Unit test helper function
-func (c *Client) VerifyMetadata() (bool, error) {
-	queryTemplate := `SELECT count(*)
-						FROM information_schema.TABLES
-						WHERE TABLE_SCHEMA = ?
-						AND TABLE_NAME LIKE "metadata%"`
-
-	stmt, err := c.DB.Prepare(queryTemplate)
-	if err != nil {
-		return false, err
-	}
-	var metadataTableCount int
-	err = stmt.QueryRow(c.schema).Scan(&metadataTableCount)
-	defer stmt.Close()
-	if err != nil {
-		return false, err
-	}
-	return metadataTableCount == MetadataTableCount, nil
-}
-
-//TODO move to test class
-//Unit test helper function
-func (c *Client) GetLoadedVersion(tableName string) (factset.PackageVersion, error) {
-	queryTemplate := `SELECT feed_version, sequence
-						FROM metadata_table_version
-						WHERE tablename = ?
-						`
-	stmt, err := c.DB.Prepare(queryTemplate)
-	if err != nil {
-		return factset.PackageVersion{}, err
-	}
-	var feedVersion int
-	var sequence int
-	err = stmt.QueryRow(tableName).Scan(&feedVersion, &sequence)
-	defer stmt.Close()
-	if err != nil {
-		return factset.PackageVersion{}, err
-	}
-	return factset.PackageVersion{FeedVersion: feedVersion, Sequence: sequence}, nil
 }

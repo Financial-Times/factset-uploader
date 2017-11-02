@@ -4,6 +4,8 @@ import (
 	"os"
 
 	_ "github.com/joho/godotenv/autoload"
+	"github.com/golang/go/src/pkg/go/doc/testdata"
+	"github.com/Financial-Times/factset-uploader/factset"
 )
 
 var dbClient *Client
@@ -93,6 +95,44 @@ func init() {
 //		PackageLoadedDate: time.Date(2017, 6, 7, 8, 9, 10, 0, time.UTC),
 //	}, pkgMetadata)
 //}
+
+func verifyMetadata() (bool, error) {
+	queryTemplate := `SELECT count(*)
+						FROM information_schema.TABLES
+						WHERE TABLE_SCHEMA = ?
+						AND TABLE_NAME LIKE "metadata%"`
+
+	stmt, err := dbClient.DB.Prepare(queryTemplate)
+	if err != nil {
+		return false, err
+	}
+	var metadataTableCount int
+	err = stmt.QueryRow(dbClient.schema).Scan(&metadataTableCount)
+	defer stmt.Close()
+	if err != nil {
+		return false, err
+	}
+	return metadataTableCount == MetadataTableCount, nil
+}
+
+func GetLoadedVersion(tableName string) (factset.PackageVersion, error) {
+	queryTemplate := `SELECT feed_version, sequence
+						FROM metadata_table_version
+						WHERE tablename = ?
+						`
+	stmt, err := dbClient.DB.Prepare(queryTemplate)
+	if err != nil {
+		return factset.PackageVersion{}, err
+	}
+	var feedVersion int
+	var sequence int
+	err = stmt.QueryRow(tableName).Scan(&feedVersion, &sequence)
+	defer stmt.Close()
+	if err != nil {
+		return factset.PackageVersion{}, err
+	}
+	return factset.PackageVersion{FeedVersion: feedVersion, Sequence: sequence}, nil
+}
 
 func removeMetadataTables() {
 	dbClient.DB.Exec(`DROP TABLE IF EXISTS metadata_package_version, metadata_table_version`)
