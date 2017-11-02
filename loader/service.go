@@ -110,11 +110,11 @@ func (s *Service) LoadPackage(pkg factset.Package) error {
 
 		packageLastUpdate = time.Now()
 	} else {
+		log.WithFields(log.Fields{"fs_product": pkg.Product}).Debugf("Schema is up to date")
 		// Else do an incremental load. which actually does a full load
 		if loadedVersion, err = s.doIncrementalLoad(pkg, currentlyLoadedPkgMetadata); err != nil {
 			return err
 		}
-
 		schemaLastUpdated = currentlyLoadedPkgMetadata.SchemaLoadedDate
 		packageLastUpdate = time.Now()
 	}
