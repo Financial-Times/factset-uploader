@@ -215,8 +215,6 @@ func getTableFromFilename(filename string) string {
 func (s *Service) unzipFile(file *os.File, product string) ([]string, error) {
 	var filenames []string
 
-	fmt.Printf("File name is %s", file.Name())
-
 	zipReader, err := zip.OpenReader(file.Name())
 	if err != nil {
 		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Could not open archive: %s", file.Name())
@@ -235,6 +233,7 @@ func (s *Service) unzipFile(file *os.File, product string) ([]string, error) {
 		filenames = append(filenames, fpath)
 	}
 
+	log.WithFields(log.Fields{"fs_product": product}).Debugf("Unzipped archive %s into %s", file.Name(), s.workspace)
 	return filenames, nil
 }
 
@@ -314,6 +313,7 @@ func (s *Service) reloadSchema(pkg factset.Package, schemaVersion *factset.Packa
 
 func (s *Service) getSchemaDetails(pkg factset.Package, schemaVersion *factset.PackageVersion) *factset.FSFile {
 	fileName := fmt.Sprintf("%s_%s_schema_%s.zip", pkg.Dataset, "v"+strconv.Itoa(schemaVersion.FeedVersion), strconv.Itoa(schemaVersion.Sequence))
+	log.WithFields(log.Fields{"fs_product": pkg.Product}).Infof("Most recent schema for %s is %s", pkg.Product, fileName)
 	return &factset.FSFile{
 		Name:    fileName,
 		Path:    fmt.Sprintf("/datafeeds/documents/docs_%s/%s", pkg.Dataset, fileName),

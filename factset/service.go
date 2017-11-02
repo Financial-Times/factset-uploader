@@ -85,6 +85,12 @@ func (s *Service) GetSchemaInfo(pkg Package) (*PackageVersion, error) {
 func (s *Service) GetLatestFile(pkg Package, isFull bool) (FSFile, error) {
 	var mostRecentDataArchive FSFile
 	var mostRecentFileName string
+	var fileType string
+	if isFull {
+		fileType = "Full"
+	} else {
+		fileType = "Delta"
+	}
 
 	fileDirectory := s.ftpServerBaseDir + fmt.Sprintf("/%s/%s", pkg.FSPackage, pkg.Product)
 	files, err := s.client.ReadDir(fileDirectory)
@@ -100,12 +106,6 @@ func (s *Service) GetLatestFile(pkg Package, isFull bool) (FSFile, error) {
 
 	fsFiles := filterAndExtractFileInfo(pkg.Product, files, isFull)
 	if len(fsFiles) == 0 {
-		var fileType string
-		if isFull {
-			fileType = "Full"
-		} else {
-			fileType = "Delta"
-		}
 		err := fmt.Errorf("No valid %s files found in: %s", fileType, fileDirectory)
 		log.WithFields(log.Fields{"fs_product": pkg.Product}).Error(err)
 		return mostRecentDataArchive, err
@@ -118,6 +118,7 @@ func (s *Service) GetLatestFile(pkg Package, isFull bool) (FSFile, error) {
 		}
 	}
 	mostRecentDataArchive.Path = fileDirectory + "/" + mostRecentFileName
+	log.WithFields(log.Fields{"fs_product": pkg.Product}).Infof("Most recent %s file for %s is %s", fileType, pkg.Product, mostRecentFileName)
 	return mostRecentDataArchive, nil
 }
 
@@ -126,9 +127,9 @@ func (s *Service) Download(file FSFile, product string) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	localFile, err := os.Open(s.workspace + "/" + file.Name)
+	localFile, err := os.Open(file.Path)
 	if err != nil {
-		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Could not open file: %s/%s", s.workspace, file.Name)
+		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Could not open file: %s", file.Path)
 		return nil, err
 	}
 	return localFile, nil

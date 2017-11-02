@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/sftp"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
-	"fmt"
 )
 
 type sftpClient struct {
@@ -60,7 +59,6 @@ func (s *sftpClient) ReadDir(dir string) ([]os.FileInfo, error) {
 }
 
 func (s *sftpClient) Download(path string, dest string, product string) error {
-	fmt.Printf("Opening path to %s\n", path)
 	file, err := s.sftp.Open(path)
 	if err != nil {
 		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Could not open %s on sftp server", path)
@@ -70,12 +68,10 @@ func (s *sftpClient) Download(path string, dest string, product string) error {
 	return s.save(file, dest, product)
 }
 
+//TODO nice to have, a progress bar of download
 func (s *sftpClient) save(file *sftp.File, dest string, product string) error {
-	fmt.Printf("Whole file name is %s\n", file.Name())
 	_, fileName := path.Split(file.Name())
-	fmt.Printf("Split name is %s\n", fileName)
 	downFile, err := os.Create(path.Join(dest, fileName))
-	fmt.Printf("Download file is %s\n", downFile.Name())
 	if err != nil {
 		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Could not create file %s/%s", dest, fileName)
 		return err
@@ -89,6 +85,7 @@ func (s *sftpClient) save(file *sftp.File, dest string, product string) error {
 	}
 	size := fileStat.Size()
 
+	log.WithFields(log.Fields{"fs_product": product}).Infof("Downloading %s from sftp server", dest, fileName)
 	n, err := io.Copy(downFile, io.LimitReader(file, size))
 	if n != size || err != nil {
 		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Download stopped at [%d] when copying sftp file to %s/%s", n, dest, fileName)
