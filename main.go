@@ -133,6 +133,7 @@ func main() {
 		fmt.Printf("We got here 3\n")
 		factsetLoader := loader.NewService(config, rdsService, factsetService, *workspace)
 		factsetLoader.LoadPackages()
+		log.Infof("%v is ending", *appName)
 		return
 	}
 

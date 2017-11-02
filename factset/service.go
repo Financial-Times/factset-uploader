@@ -84,6 +84,7 @@ func (s *Service) GetSchemaInfo(pkg Package) (*PackageVersion, error) {
 // Get files after given version for a package
 func (s *Service) GetLatestFile(pkg Package, isFull bool) (FSFile, error) {
 	var mostRecentDataArchive FSFile
+	var mostRecentFileName string
 
 	fileDirectory := s.ftpServerBaseDir + fmt.Sprintf("/%s/%s", pkg.FSPackage, pkg.Product)
 	files, err := s.client.ReadDir(fileDirectory)
@@ -113,9 +114,10 @@ func (s *Service) GetLatestFile(pkg Package, isFull bool) (FSFile, error) {
 	for _, file := range fsFiles {
 		if file.Version.FeedVersion == pkg.FeedVersion && file.Version.Sequence > mostRecentDataArchive.Version.Sequence {
 			mostRecentDataArchive = file
+			mostRecentFileName = file.Name
 		}
 	}
-	mostRecentDataArchive.Path = fileDirectory
+	mostRecentDataArchive.Path = fileDirectory + "/" + mostRecentFileName
 	return mostRecentDataArchive, nil
 }
 
