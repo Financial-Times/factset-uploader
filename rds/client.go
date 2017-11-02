@@ -83,17 +83,21 @@ func (c *Client) UpdateLoadedTableVersion(tableName string, version factset.Pack
 						(tablename, feed_version, sequence, date_loaded)
 						VALUES (?, ?, ?, NOW())`
 	stmt, err := c.DB.Prepare(updateTableMetadataQueryTemplate)
+	fmt.Printf("We got here 3\n")
 	defer stmt.Close()
 	if err != nil {
 		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Error preparing query to update table metadata for table: %s", tableName)
 		return err
 	}
+	fmt.Printf("We got here 4\n")
 
 	res, err := stmt.Exec(tableName, version.FeedVersion, version.Sequence)
 	if err != nil {
 		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Error("Error running query to update table metadata for table: %s", tableName)
 		return err
 	}
+
+	fmt.Printf("We got here 5\n")
 	rowsAffected, err := res.RowsAffected()
 	if rowsAffected <= 0 {
 		err := fmt.Errorf("No rows were updated as a result of running update table metadata for table: %s", tableName)
@@ -132,6 +136,7 @@ func (c *Client) LoadTable(filename, table string) error {
 	queryTemplate := `LOAD DATA LOCAL INFILE '%s' REPLACE INTO TABLE %s FIELDS TERMINATED BY '|'
 	OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 LINES;`
 
+	fmt.Printf("We got here 2\n")
 	_, err := c.DB.Exec(fmt.Sprintf(queryTemplate, filename, table))
 	return err
 }

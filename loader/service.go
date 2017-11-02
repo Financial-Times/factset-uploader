@@ -181,8 +181,10 @@ func (s *Service) doFullLoad(pkg factset.Package, currentLoadedFileMetadata fact
 		if err != nil {
 			return loadedVersions, err
 		}
+		fmt.Printf("There are %d files to load", localDataFiles)
 
 		for _, file := range localDataFiles {
+			fmt.Printf("We got here 1\n")
 			tableName := getTableFromFilename(file)
 			err = s.db.LoadTable(file, tableName)
 			if err != nil {
