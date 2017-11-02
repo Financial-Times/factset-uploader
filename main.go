@@ -13,7 +13,6 @@ import (
 	"github.com/Financial-Times/factset-uploader/rds"
 	"github.com/jawher/mow.cli"
 	log "github.com/sirupsen/logrus"
-	"fmt"
 )
 
 const appDescription = "Downloads the factset files from Factset SFTP and sends them to S3"
@@ -128,7 +127,6 @@ func main() {
 			return
 		}
 
-		fmt.Printf("We got here 3")
 		factsetLoader := loader.NewService(config, rdsService, factsetService, *workspace)
 		factsetLoader.LoadPackages()
 		return
@@ -142,7 +140,6 @@ func main() {
 }
 
 func convertConfig(configString string) (loader.Config, error) {
-	fmt.Printf("We got here 1")
 
 	var config loader.Config
 	splitConfig := strings.Split(configString, ";")
@@ -151,8 +148,6 @@ func convertConfig(configString string) (loader.Config, error) {
 		if len(splitPkg) != 4 {
 			return loader.Config{}, errors.New("Package config is incorrectly configured; it has the wrong number of values. See readme for instructions")
 		}
-
-		fmt.Printf("We got here 2")
 
 		version, _ := strconv.Atoi(splitPkg[3])
 		config.AddPackage(factset.Package{

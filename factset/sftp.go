@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/sftp"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
+	"fmt"
 )
 
 type sftpClient struct {
@@ -59,6 +60,7 @@ func (s *sftpClient) ReadDir(dir string) ([]os.FileInfo, error) {
 }
 
 func (s *sftpClient) Download(path string, dest string, product string) error {
+	fmt.Printf("Opening path to %s", path)
 	file, err := s.sftp.Open(path)
 	if err != nil {
 		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Could not open %s on sftp server", path)
@@ -70,8 +72,13 @@ func (s *sftpClient) Download(path string, dest string, product string) error {
 
 func (s *sftpClient) save(file *sftp.File, dest string, product string) error {
 	os.Mkdir(dest, 0700)
+	fmt.Printf("Making directory %s", dest)
+
+	fmt.Printf("Whole file name is %s", file.Name())
 	_, fileName := path.Split(file.Name())
+	fmt.Printf("Split name is %s", fileName)
 	downFile, err := os.Create(path.Join(dest, fileName))
+	fmt.Printf("Download file is %s", downFile.Name())
 	if err != nil {
 		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Could not create file %s/%s", dest, fileName)
 		return err

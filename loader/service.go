@@ -36,10 +36,8 @@ func NewService(config Config, db *rds.Client, factset factset.Servicer, workspa
 }
 
 func (s *Service) LoadPackages() {
-	fmt.Printf("We got here 4")
 	err := refreshWorkingDirectory(s.workspace)
 	if err == nil {
-		fmt.Printf("We got here 5")
 		for _, v := range s.config.packages {
 			err := s.LoadPackage(v)
 			if err != nil {
@@ -49,19 +47,6 @@ func (s *Service) LoadPackages() {
 	}
 	return
 }
-
-//func refreshWorkingDirectory(workspace string) error {
-//	os.RemoveAll(workspace + "/*")
-//	if err := os.RemoveAll(workspace); err != nil {
-//		log.WithError(err).Errorf("Could not delete directory %s, can not run application", workspace)
-//		return err
-//	}
-//	if err := os.Mkdir(workspace, 0700); err != nil {
-//		log.WithError(err).Errorf("Could not create directory %s, can not run application", workspace)
-//		return err
-//	}
-//	return nil
-//}
 
 func refreshWorkingDirectory(workspace string) error {
 	d, err := os.Open(workspace)
@@ -227,6 +212,8 @@ func getTableFromFilename(filename string) string {
 
 func (s *Service) unzipFile(file *os.File, product string) ([]string, error) {
 	var filenames []string
+
+	fmt.Printf("File name is %s", file.Name())
 
 	zipReader, err := zip.OpenReader(file.Name())
 	if err != nil {
