@@ -36,10 +36,8 @@ func NewService(config Config, db *rds.Client, factset factset.Servicer, workspa
 }
 
 func (s *Service) LoadPackages() {
-	fmt.Printf("We got here 4\n")
 	err := refreshWorkingDirectory(s.workspace)
 	if err == nil {
-		fmt.Printf("We got here 5\n")
 		for _, v := range s.config.packages {
 			err := s.LoadPackage(v)
 			if err != nil {
@@ -181,10 +179,8 @@ func (s *Service) doFullLoad(pkg factset.Package, currentLoadedFileMetadata fact
 		if err != nil {
 			return loadedVersions, err
 		}
-		fmt.Printf("There are %d files to load", localDataFiles)
 
 		for _, file := range localDataFiles {
-			fmt.Printf("We got here 1\n")
 			tableName := getTableFromFilename(file)
 			err = s.db.LoadTable(file, tableName)
 			if err != nil {
@@ -197,10 +193,10 @@ func (s *Service) doFullLoad(pkg factset.Package, currentLoadedFileMetadata fact
 				return loadedVersions, err
 			}
 
-			loadedVersions = latestDataArchive.Version
-			log.WithFields(log.Fields{"fs_product": pkg.Product}).Infof("Updated table %s with data version v%d_%d", tableName, loadedVersions.FeedVersion, loadedVersions.Sequence)
+			loadedVersions.FeedVersion = latestDataArchive.Version.FeedVersion
+			loadedVersions.Sequence = latestDataArchive.Version.Sequence
+			log.WithFields(log.Fields{"fs_product": pkg.Product}).Infof("Updated table %s with data version v%d_%d", tableName, latestDataArchive.Version.FeedVersion, latestDataArchive.Version.Sequence)
 		}
-
 		// Update the package metadata, has the schema changed though?
 	} else {
 		log.Infof("%s data is up-to-date as version v%d_%d has already been loaded into db", pkg.Product, currentLoadedFileMetadata.PackageVersion.FeedVersion, currentLoadedFileMetadata.PackageVersion.Sequence)
@@ -233,7 +229,6 @@ func (s *Service) unzipFile(file *os.File, product string) ([]string, error) {
 		}
 		filenames = append(filenames, fpath)
 	}
-	fmt.Printf("There are %d files to load", filenames)
 
 	log.WithFields(log.Fields{"fs_product": product}).Debugf("Unzipped archive %s into %s", file.Name(), s.workspace)
 	return filenames, nil
