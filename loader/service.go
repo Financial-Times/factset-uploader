@@ -36,8 +36,10 @@ func NewService(config Config, db *rds.Client, factset factset.Servicer, workspa
 }
 
 func (s *Service) LoadPackages() {
+	fmt.Printf("We got here 4\n")
 	err := refreshWorkingDirectory(s.workspace)
 	if err == nil {
+		fmt.Printf("We got here 5\n")
 		for _, v := range s.config.packages {
 			err := s.LoadPackage(v)
 			if err != nil {
