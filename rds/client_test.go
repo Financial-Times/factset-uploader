@@ -51,20 +51,20 @@ func TestClientUpdateAndGetLoadedVersion(t *testing.T) {
 	assert.EqualValues(t, factset.PackageVersion{1, 10}, version)
 }
 
-func TestClientDropTablesWithPrefix(t *testing.T) {
-	createTestTables()
-	defer dropTestTables()
-
-	assert.Equal(t, 5, countTestTables())
-
-	err := dbClient.DropTablesWithDataset("foo", "foo_entity")
-	assert.NoError(t, err)
-	assert.Equal(t, 2, countTestTables())
-
-	err = dbClient.DropTablesWithDataset("fake", "fke_entity")
-	assert.NoError(t, err)
-	assert.Equal(t, 2, countTestTables())
-}
+//func TestClientDropTablesWithPrefix(t *testing.T) {
+//	createTestTables()
+//	defer dropTestTables()
+//
+//	assert.Equal(t, 5, countTestTables())
+//
+//	err := dbClient.DropTablesWithDataset("foo", "foo_entity")
+//	assert.NoError(t, err)
+//	assert.Equal(t, 2, countTestTables())
+//
+//	err = dbClient.DropTablesWithDataset("fake", "fke_entity")
+//	assert.NoError(t, err)
+//	assert.Equal(t, 2, countTestTables())
+//}
 
 func TestClientGetPackageMetadata(t *testing.T) {
 	dbClient.LoadMetadataTables()

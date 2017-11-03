@@ -36,14 +36,25 @@ func NewService(config Config, db *rds.Client, factset factset.Servicer, workspa
 }
 
 func (s *Service) LoadPackages() {
+	//Make sure working directory is clean prior to run
 	err := refreshWorkingDirectory(s.workspace)
-	if err == nil {
-		for _, v := range s.config.packages {
-			err := s.LoadPackage(v)
-			if err != nil {
-				log.WithFields(log.Fields{"fs_product": v.Product}).Errorf("An error occurred whilst loading product %s; moving on to next package", v.Product)
-			}
+	if err != nil {
+		log.WithError(err).Errorf("Could not clean up working directory %s prior package load", s.workspace)
+		return
+	}
+
+	for _, v := range s.config.packages {
+		err := s.LoadPackage(v)
+		if err != nil {
+			log.WithFields(log.Fields{"fs_product": v.Product}).Errorf("An error occurred whilst loading product %s; moving on to next package", v.Product)
 		}
+	}
+
+	//Re clean directory after final package has been loaded
+	err = refreshWorkingDirectory(s.workspace)
+	if err != nil {
+		log.WithError(err).Errorf("Could not clean up working directory %s after loading packages", s.workspace)
+		return
 	}
 	return
 }
@@ -135,7 +146,7 @@ func (s *Service) LoadPackage(pkg factset.Package) error {
 	if err := s.db.UpdateLoadedPackageVersion(updatedPackageMetadata); err != nil {
 		return err
 	} else {
-		log.WithFields(log.Fields{"fs_product": pkg.Product}).Infof("Updated product %s to data version v%d_%d", pkg.Product, currentlyLoadedPkgMetadata.PackageVersion.FeedVersion, currentlyLoadedPkgMetadata.PackageVersion.Sequence)
+		log.WithFields(log.Fields{"fs_product": pkg.Product}).Infof("Updated product %s to data version v%d_%d", pkg.Product, updatedPackageMetadata.PackageVersion.FeedVersion, updatedPackageMetadata.PackageVersion.Sequence)
 	}
 	return nil
 }
@@ -181,6 +192,7 @@ func (s *Service) doFullLoad(pkg factset.Package, currentLoadedFileMetadata fact
 		}
 
 		for _, file := range localDataFiles {
+			//TODO version the file name to be table_sequence
 			tableName := getTableFromFilename(file)
 			err = s.db.LoadTable(file, tableName)
 			if err != nil {

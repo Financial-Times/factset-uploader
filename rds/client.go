@@ -45,7 +45,7 @@ func NewClient(dsn string) (*Client, error) {
 
 //TODO in future we should have versioning/namespacing for our schema tables so that they are only dropped after a successful reload
 func (c *Client) DropTablesWithDataset(dataset string, product string) error {
-	getTableQuery := fmt.Sprintf(`SHOW TABLES LIKE '%s%%'`, dataset)
+	getTableQuery := fmt.Sprintf(`SELECT tablename FROM metadata_table_version WHERE product = '%s'`, product)
 	rows, err := c.DB.Query(getTableQuery)
 	if err != nil {
 		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Error running query to return tables matching: %s", dataset)
