@@ -69,7 +69,7 @@ func (c *Client) DropTablesWithDataset(dataset string, product string) error {
 		log.WithFields(log.Fields{"fs_product": product}).Infof("Db has no tables matching dataset: %s", dataset)
 		return nil
 	}
-	dropTableQuery := fmt.Sprintf(`DROP TABLES %s`, strings.Join(tableNames, ", "))
+	dropTableQuery := fmt.Sprintf(`DROP TABLES IF EXISTS %s`, strings.Join(tableNames, ", "))
 	_, err = c.DB.Exec(dropTableQuery)
 	if err != nil {
 		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Error executing query to drop tables matching: %s", strings.Join(tableNames, ", "))
