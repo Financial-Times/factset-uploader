@@ -80,8 +80,8 @@ func (c *Client) DropTablesWithDataset(dataset string, product string) error {
 
 func (c *Client) UpdateLoadedTableVersion(tableName string, version factset.PackageVersion, product string) error {
 	updateTableMetadataQueryTemplate := `REPLACE INTO metadata_table_version
-						(tablename, feed_version, sequence, date_loaded)
-						VALUES (?, ?, ?, NOW())`
+						(tablename, feed_version, sequence, date_loaded, product)
+						VALUES (?, ?, ?, NOW(), ?)`
 	stmt, err := c.DB.Prepare(updateTableMetadataQueryTemplate)
 	defer stmt.Close()
 	if err != nil {
@@ -89,7 +89,7 @@ func (c *Client) UpdateLoadedTableVersion(tableName string, version factset.Pack
 		return err
 	}
 
-	res, err := stmt.Exec(tableName, version.FeedVersion, version.Sequence)
+	res, err := stmt.Exec(tableName, version.FeedVersion, version.Sequence, product)
 	if err != nil {
 		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Error("Error running query to update table metadata for table: %s", tableName)
 		return err
@@ -200,6 +200,7 @@ func (c *Client) LoadMetadataTables() error {
 			feed_version INT,
 			sequence INT,
 			date_loaded DATETIME,
+			product  varchar(255) NOT NULL,
 			PRIMARY KEY (tablename)
 		);`
 
@@ -207,7 +208,6 @@ func (c *Client) LoadMetadataTables() error {
 		log.WithError(err).Error("Error running query to create metadata_table_version table")
 		return err
 	}
-	log.Debugf("Created metadata tables")
 	return nil
 }
 
