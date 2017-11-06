@@ -180,6 +180,10 @@ func (s *Service) doFullLoad(pkg factset.Package, currentLoadedFileMetadata fact
 
 	if currentLoadedFileMetadata.PackageVersion.FeedVersion == 0 ||
 		(currentLoadedFileMetadata.PackageVersion.FeedVersion == latestDataArchive.Version.FeedVersion && currentLoadedFileMetadata.PackageVersion.Sequence < latestDataArchive.Version.Sequence) {
+		//TODO Remove this once dailies are fully implemented
+		if err := s.db.DropTablesWithDataset(pkg.Dataset, pkg.Product); err != nil {
+			return loadedVersions, err
+		}
 
 		localDataArchive, err := s.factset.Download(latestDataArchive, pkg.Product)
 		if err != nil {
