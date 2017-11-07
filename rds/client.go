@@ -85,19 +85,19 @@ func (c *Client) UpdateLoadedTableVersion(tableName string, version factset.Pack
 	stmt, err := c.DB.Prepare(updateTableMetadataQueryTemplate)
 	defer stmt.Close()
 	if err != nil {
-		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Error preparing query to update table metadata for table: %s", tableName)
+		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("error preparing query to update table metadata for table: %s", tableName)
 		return err
 	}
 
 	res, err := stmt.Exec(tableName, version.FeedVersion, version.Sequence, product)
 	if err != nil {
-		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Error("Error running query to update table metadata for table: %s", tableName)
+		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("error running query to update table metadata for table: %s", tableName)
 		return err
 	}
 
 	rowsAffected, err := res.RowsAffected()
 	if rowsAffected <= 0 {
-		err := fmt.Errorf("No rows were updated as a result of running update table metadata for table: %s", tableName)
+		err := fmt.Errorf("no rows were updated as a result of running update table metadata for table: %s", tableName)
 		log.WithFields(log.Fields{"fs_product": product}).Error(err)
 		return err
 	}
@@ -123,7 +123,7 @@ func (c *Client) UpdateLoadedPackageVersion(packageMetadata *factset.PackageMeta
 	}
 	rowsAffected, err := res.RowsAffected()
 	if rowsAffected <= 0 {
-		err := fmt.Errorf("No rows were updated as a result of running update package metadata for product: %s", product)
+		err := fmt.Errorf("no rows were updated as a result of running update package metadata for product: %s", product)
 		log.WithFields(log.Fields{"fs_product": product}).Error(err)
 	}
 	return nil
@@ -211,19 +211,13 @@ func (c *Client) LoadMetadataTables() error {
 	return nil
 }
 
-// The content of the file factset provides with all the create table statements delimited by a ;
+// CreateTablesFromSchema
+// Takes the semicolon delimited contents of the create table file and creates the tables.
 func (c *Client) CreateTablesFromSchema(contents []byte, product string) error {
 	statements := strings.Split(string(contents), ";")
 
 	for _, statement := range statements {
-		//trimmedStatement := strings.TrimSpace(statement)
-		//_, err := c.DB.Exec(trimmedStatement)
-		//if err != nil {
-		//	log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Error running query to create schema for %s", product)
-		//	return err
-		//}
-		//TODO fix this
-		//Use trim or something???
+		statement = strings.TrimSpace(statement)
 		if statement != "" && len(statement) > 10 {
 			_, err := c.DB.Exec(statement)
 			if err != nil {

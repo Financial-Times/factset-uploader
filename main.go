@@ -1,19 +1,22 @@
 package main
 
 import (
+	"net/http"
 	"os"
+	"sync"
 
 	"errors"
 	"strings"
 
 	"strconv"
 
+	_ "net/http/pprof"
+
 	"github.com/Financial-Times/factset-uploader/factset"
 	"github.com/Financial-Times/factset-uploader/loader"
 	"github.com/Financial-Times/factset-uploader/rds"
 	"github.com/jawher/mow.cli"
 	log "github.com/sirupsen/logrus"
-	_ "net/http/pprof"
 )
 
 const appDescription = "Downloads the factset files from Factset SFTP and sends them to S3"
@@ -129,7 +132,13 @@ func main() {
 		}
 
 		factsetLoader := loader.NewService(config, rdsService, factsetService, *workspace)
-		factsetLoader.LoadPackages()
+		go func() {
+			log.Println(http.ListenAndServe(":6060", nil))
+		}()
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go factsetLoader.LoadPackages(&wg)
+		wg.Wait()
 		log.Infof("%v is ending", *appName)
 		return
 	}
@@ -148,7 +157,7 @@ func convertConfig(configString string) (loader.Config, error) {
 	for _, pkg := range splitConfig {
 		splitPkg := strings.Split(pkg, ",")
 		if len(splitPkg) != 4 {
-			return loader.Config{}, errors.New("Package config is incorrectly configured; it has the wrong number of values. See readme for instructions")
+			return loader.Config{}, errors.New("package config is incorrectly configured; it has the wrong number of values. See readme for instructions")
 		}
 
 		version, _ := strconv.Atoi(splitPkg[3])

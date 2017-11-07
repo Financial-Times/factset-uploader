@@ -3,11 +3,12 @@ package rds
 import (
 	"os"
 
-	_ "github.com/joho/godotenv/autoload"
-	"github.com/Financial-Times/factset-uploader/factset"
-	"github.com/stretchr/testify/assert"
-	"time"
 	"testing"
+	"time"
+
+	"github.com/Financial-Times/factset-uploader/factset"
+	_ "github.com/joho/godotenv/autoload"
+	"github.com/stretchr/testify/assert"
 )
 
 var dbClient *Client

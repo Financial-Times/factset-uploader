@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"fmt"
 	"io/ioutil"
@@ -35,7 +36,8 @@ func NewService(config Config, db *rds.Client, factset factset.Servicer, workspa
 	}
 }
 
-func (s *Service) LoadPackages() {
+func (s *Service) LoadPackages(wg *sync.WaitGroup) {
+	defer wg.Done()
 	//Make sure working directory is clean prior to run
 	err := refreshWorkingDirectory(s.workspace)
 	if err != nil {
