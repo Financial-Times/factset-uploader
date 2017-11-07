@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 
 	"fmt"
 	"io/ioutil"
@@ -20,6 +19,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Service - Logic for loading the data files.
 type Service struct {
 	config    Config
 	workspace string
@@ -27,6 +27,7 @@ type Service struct {
 	factset   factset.Servicer
 }
 
+// NewService - Creates a new loader.Service
 func NewService(config Config, db *rds.Client, factset factset.Servicer, workspace string) *Service {
 	return &Service{
 		config:    config,
@@ -36,8 +37,8 @@ func NewService(config Config, db *rds.Client, factset factset.Servicer, workspa
 	}
 }
 
-func (s *Service) LoadPackages(wg *sync.WaitGroup) {
-	defer wg.Done()
+// LoadPackages - Load all packages listed in the config
+func (s *Service) LoadPackages() {
 	//Make sure working directory is clean prior to run
 	err := refreshWorkingDirectory(s.workspace)
 	if err != nil {
@@ -46,7 +47,7 @@ func (s *Service) LoadPackages(wg *sync.WaitGroup) {
 	}
 
 	for _, v := range s.config.packages {
-		err := s.LoadPackage(v)
+		err = s.loadPackage(v)
 		if err != nil {
 			log.WithFields(log.Fields{"fs_product": v.Product}).Errorf("An error occurred whilst loading product %s; moving on to next package", v.Product)
 		}
@@ -58,7 +59,6 @@ func (s *Service) LoadPackages(wg *sync.WaitGroup) {
 		log.WithError(err).Errorf("Could not clean up working directory %s after loading packages", s.workspace)
 		return
 	}
-	return
 }
 
 func refreshWorkingDirectory(workspace string) error {
@@ -82,7 +82,7 @@ func refreshWorkingDirectory(workspace string) error {
 	return nil
 }
 
-func (s *Service) LoadPackage(pkg factset.Package) error {
+func (s *Service) loadPackage(pkg factset.Package) error {
 	log.WithFields(log.Fields{"fs_product": pkg.Product}).Infof("Processing %s package", pkg.Product)
 	// Get package metadata
 	if err := s.db.LoadMetadataTables(); err != nil {
@@ -105,10 +105,9 @@ func (s *Service) LoadPackage(pkg factset.Package) error {
 	var packageLastUpdate time.Time
 	var loadedVersion factset.PackageVersion
 
-	//if schema is out of data, reload schema then do full load
-	//this will need to be reworked when delta are handled
-	if currentPackageMetadataErr == sql.ErrNoRows || schemaVersion.FeedVersion > currentlyLoadedPkgMetadata.SchemaVersion.FeedVersion ||
-		(schemaVersion.FeedVersion == currentlyLoadedPkgMetadata.SchemaVersion.FeedVersion && schemaVersion.Sequence > currentlyLoadedPkgMetadata.SchemaVersion.Sequence) {
+	// If schema is out of data, reload schema then do full load
+	// This will need to be reworked when delta are handled
+	if isSchemaOutOfDate(schemaVersion, currentlyLoadedPkgMetadata) {
 		log.WithFields(log.Fields{"fs_product": pkg.Product}).Debugf("Schema is out of date")
 		if err = s.reloadSchema(pkg, schemaVersion); err != nil {
 			return err
@@ -130,7 +129,7 @@ func (s *Service) LoadPackage(pkg factset.Package) error {
 		packageLastUpdate = time.Now()
 	}
 
-	//Update existing metadata
+	// Update existing metadata
 	updatedPackageMetadata := &factset.PackageMetadata{
 		Package: pkg,
 		SchemaVersion: factset.PackageVersion{
@@ -147,10 +146,14 @@ func (s *Service) LoadPackage(pkg factset.Package) error {
 
 	if err := s.db.UpdateLoadedPackageVersion(updatedPackageMetadata); err != nil {
 		return err
-	} else {
-		log.WithFields(log.Fields{"fs_product": pkg.Product}).Infof("Updated product %s to data version v%d_%d", pkg.Product, updatedPackageMetadata.PackageVersion.FeedVersion, updatedPackageMetadata.PackageVersion.Sequence)
 	}
+	log.WithFields(log.Fields{"fs_product": pkg.Product}).Infof("Updated product %s to data version v%d_%d", pkg.Product, updatedPackageMetadata.PackageVersion.FeedVersion, updatedPackageMetadata.PackageVersion.Sequence)
 	return nil
+}
+
+func isSchemaOutOfDate(latestSchema *factset.PackageVersion, loadedSchema factset.PackageMetadata) bool {
+	return latestSchema.FeedVersion > loadedSchema.SchemaVersion.FeedVersion ||
+		(latestSchema.FeedVersion == loadedSchema.SchemaVersion.FeedVersion && latestSchema.Sequence > loadedSchema.SchemaVersion.Sequence)
 }
 
 // Incremental load:
@@ -183,16 +186,18 @@ func (s *Service) doFullLoad(pkg factset.Package, currentLoadedFileMetadata fact
 	if currentLoadedFileMetadata.PackageVersion.FeedVersion == 0 ||
 		(currentLoadedFileMetadata.PackageVersion.FeedVersion == latestDataArchive.Version.FeedVersion && currentLoadedFileMetadata.PackageVersion.Sequence < latestDataArchive.Version.Sequence) {
 		//TODO Remove this once dailies are fully implemented
-		if err := s.db.DropTablesWithDataset(pkg.Dataset, pkg.Product); err != nil {
+		if err = s.db.DropTablesWithDataset(pkg.Dataset, pkg.Product); err != nil {
 			return loadedVersions, err
 		}
 
-		localDataArchive, err := s.factset.Download(latestDataArchive, pkg.Product)
+		var localDataArchive *os.File
+		localDataArchive, err = s.factset.Download(latestDataArchive, pkg.Product)
 		if err != nil {
 			return loadedVersions, err
 		}
 
-		localDataFiles, err := s.unzipFile(localDataArchive, pkg.Product)
+		var localDataFiles []string
+		localDataFiles, err = s.unzipFile(localDataArchive, pkg.Product)
 		if err != nil {
 			return loadedVersions, err
 		}
@@ -202,7 +207,7 @@ func (s *Service) doFullLoad(pkg factset.Package, currentLoadedFileMetadata fact
 			tableName := getTableFromFilename(file)
 			err = s.db.LoadTable(file, tableName)
 			if err != nil {
-				log.WithError(err).WithFields(log.Fields{"fs_product": pkg.Product}).Error("Error whilst loading table %s with data from file %s", tableName, file)
+				log.WithError(err).WithFields(log.Fields{"fs_product": pkg.Product}).Errorf("Error whilst loading table %s with data from file %s", tableName, file)
 				return loadedVersions, err
 			}
 
@@ -267,7 +272,10 @@ func copyFile(srcFile *zip.File, dest string) error {
 	defer f.Close()
 
 	if srcFile.FileInfo().IsDir() {
-		os.MkdirAll(dest, os.ModePerm)
+		err = os.MkdirAll(dest, os.ModePerm)
+		if err != nil {
+			return err
+		}
 	} else {
 		var fdir string
 		if lastIndex := strings.LastIndex(dest, string(os.PathSeparator)); lastIndex > -1 {
@@ -282,10 +290,7 @@ func copyFile(srcFile *zip.File, dest string) error {
 	}
 
 	_, err = io.Copy(f, rc)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // Reloading schema:
@@ -312,15 +317,14 @@ func (s *Service) reloadSchema(pkg factset.Package, schemaVersion *factset.Packa
 		if strings.HasSuffix(file, ".sql") {
 			fileContents, err := ioutil.ReadFile(file)
 			if err != nil {
-				log.WithError(err).WithFields(log.Fields{"fs_product": pkg.Product}).Error("Could not read file: %s", file)
+				log.WithError(err).WithFields(log.Fields{"fs_product": pkg.Product}).Errorf("Could not read file: %s", file)
 				return err
 			}
 			err = s.db.CreateTablesFromSchema(fileContents, pkg.Product)
 			if err != nil {
 				return err
-			} else {
-				log.WithFields(log.Fields{"fs_product": pkg.Product}).Infof("Updated schema for product %s to version v%d_%d", pkg.Product, schemaVersion.FeedVersion, schemaVersion.Sequence)
 			}
+			log.WithFields(log.Fields{"fs_product": pkg.Product}).Infof("Updated schema for product %s to version v%d_%d", pkg.Product, schemaVersion.FeedVersion, schemaVersion.Sequence)
 		}
 	}
 	return nil

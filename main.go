@@ -1,9 +1,7 @@
 package main
 
 import (
-	"net/http"
 	"os"
-	"sync"
 
 	"errors"
 	"strings"
@@ -132,13 +130,7 @@ func main() {
 		}
 
 		factsetLoader := loader.NewService(config, rdsService, factsetService, *workspace)
-		go func() {
-			log.Println(http.ListenAndServe(":6060", nil))
-		}()
-		var wg sync.WaitGroup
-		wg.Add(1)
-		go factsetLoader.LoadPackages(&wg)
-		wg.Wait()
+		factsetLoader.LoadPackages()
 		log.Infof("%v is ending", *appName)
 		return
 	}

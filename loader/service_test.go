@@ -1,12 +1,12 @@
 package loader
 
 import (
+	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"strings"
-
-	"errors"
 
 	"github.com/Financial-Times/factset-uploader/factset"
 	"github.com/Financial-Times/factset-uploader/rds"
@@ -42,14 +42,18 @@ var filesInDirectory = []factset.FSFile{
 }
 
 var stalePackageMetadata = factset.PackageMetadata{
-	Package:        standardPkg,
-	SchemaVersion:  factset.PackageVersion{FeedVersion: 1, Sequence: 1},
-	PackageVersion: factset.PackageVersion{FeedVersion: 1, Sequence: 1},
+	Package:           standardPkg,
+	SchemaVersion:     factset.PackageVersion{FeedVersion: 1, Sequence: 1},
+	PackageVersion:    factset.PackageVersion{FeedVersion: 1, Sequence: 1},
+	SchemaLoadedDate:  time.Now(),
+	PackageLoadedDate: time.Now(),
 }
 var freshPackageMetadata = factset.PackageMetadata{
-	Package:        standardPkg,
-	SchemaVersion:  factset.PackageVersion{FeedVersion: 1, Sequence: 1},
-	PackageVersion: factset.PackageVersion{FeedVersion: 1, Sequence: 1250},
+	Package:           standardPkg,
+	SchemaVersion:     factset.PackageVersion{FeedVersion: 1, Sequence: 1},
+	PackageVersion:    factset.PackageVersion{FeedVersion: 1, Sequence: 1250},
+	SchemaLoadedDate:  time.Now(),
+	PackageLoadedDate: time.Now(),
 }
 
 var standardPkg = factset.Package{
@@ -159,24 +163,24 @@ func Test_LoadPackage(t *testing.T) {
 			defer dropTable(dbClient, "ppl_names")
 			defer removeMetadataTables(dbClient)
 
-			if d.freshLoad == false {
+			if !d.freshLoad {
 				err := dbClient.LoadMetadataTables()
 				assert.NoError(t, err, "Test %s failed, could not load metadata tables with error: ", d.testName, err)
 				err = dbClient.UpdateLoadedPackageVersion(&d.existingPackageMetadata)
 				assert.NoError(t, err, "Test %s failed, could not pre load package metadata table with error: ", d.testName, err)
 			}
 
-			if d.mockIncrementalLoad == true {
+			if d.mockIncrementalLoad {
 				err := createPplNamesTable(dbClient)
 				assert.NoError(t, err, "Test %s failed, could not load ppl_names table with error: ", d.testName, err)
 			}
 
 			loader := NewService(Config{[]factset.Package{d.pkg}}, dbClient, d.factsetService, "../fixtures/tmp")
 
-			err := loader.LoadPackage(d.pkg)
+			err := loader.loadPackage(d.pkg)
 
 			if d.expectedError != nil {
-				assert.Error(t, err, "Test %s failed, should have resulted in an error", d.testName)
+				assert.Errorf(t, err, "Test %s failed, should have resulted in an error", d.testName)
 				assert.Contains(t, err.Error(), d.expectedError.Error(), "Test %s failed, returned unexpected error", d.testName)
 
 			} else {
@@ -243,12 +247,12 @@ func pickLatestFile(f1 factset.FSFile, f2 factset.FSFile, pkg factset.Package) f
 }
 
 func createDBClient() *rds.Client {
-	testDSN := ""
+	var testDSN string
 
 	if os.Getenv("RDS_DSN") != "" {
 		testDSN = os.Getenv("RDS_DSN")
 	} else {
-		testDSN = "root:@/test"
+		testDSN = "root:root@/test"
 	}
 
 	dbClient, _ := rds.NewClient(testDSN)

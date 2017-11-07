@@ -194,7 +194,7 @@ func (c *Client) LoadMetadataTables() error {
 		return err
 	}
 
-	query = `
+	query2 := `
 		CREATE TABLE IF NOT EXISTS metadata_table_version (
 			tablename varchar(255) NOT NULL,
 			feed_version INT,
@@ -204,7 +204,7 @@ func (c *Client) LoadMetadataTables() error {
 			PRIMARY KEY (tablename)
 		);`
 
-	if _, err := c.DB.Exec(query); err != nil {
+	if _, err := c.DB.Exec(query2); err != nil {
 		log.WithError(err).Error("Error running query to create metadata_table_version table")
 		return err
 	}
