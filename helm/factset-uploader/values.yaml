@@ -4,18 +4,16 @@
 service:
   name: "" # The name of the service, should be defined in the specific app-configs folder.
   hasHealthcheck: "true"
+  packages: "" # The packages of the service, should be defined in the specific app-configs folder.
+  rds_dsn_secret: "" # The secret key to use as the RDS DSN, should be defined in the specific app-configs folder.
 replicaCount: 1
 image:
   repository: coco/factset-uploader
   pullPolicy: IfNotPresent
 resources:
   limits:
-    memory: 256Mi
+    memory: 1.4Gi
 env:
   FACTSET_FTP: ""
 storage:
-  region: ""
-  zone: ""
-  capacity: ""
-  fsType: ""
-  volumeID: ""
+  capacity: 5Gi
