@@ -211,6 +211,7 @@ func (s *Service) doFullLoad(pkg factset.Package, currentLoadedFileMetadata fact
 				return loadedVersions, err
 			}
 
+			log.WithFields(log.Fields{"fs_product": pkg.Product}).Debugf("Loading table %s with data from file %s", tableName, file)
 			err = s.db.LoadTable(file, tableName)
 			if err != nil {
 				log.WithError(err).WithFields(log.Fields{"fs_product": pkg.Product}).Errorf("Error whilst loading table %s with data from file %s", tableName, file)
