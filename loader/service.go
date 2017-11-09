@@ -62,6 +62,7 @@ func (s *Service) LoadPackages() {
 }
 
 func refreshWorkingDirectory(workspace string) error {
+	log.WithFields(log.Fields{"workspace": workspace}).Info("Refreshing the workspace")
 	d, err := os.Open(workspace)
 	if err != nil {
 		log.WithError(err).Fatalf("Could not open directory %s, can not run application", workspace)
@@ -74,6 +75,7 @@ func refreshWorkingDirectory(workspace string) error {
 		return err
 	}
 	for _, name := range names {
+		log.WithFields(log.Fields{"workspace": workspace, "file": name}).Debug("Removing file")
 		if err = os.RemoveAll(filepath.Join(workspace, name)); err != nil {
 			log.WithError(err).Fatalf("Could not clear down directory %s, can not run application", workspace)
 			return err
