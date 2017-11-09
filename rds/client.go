@@ -78,6 +78,16 @@ func (c *Client) DropTablesWithDataset(dataset string, product string) error {
 	return nil
 }
 
+func (c *Client) DropDataFromTable(tableName string, product string) error {
+	deleteRowsQuery := fmt.Sprintf(`DELETE FROM %s`, tableName)
+	_, err := c.DB.Query(deleteRowsQuery)
+	if err != nil {
+		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Error executing query to clear data from table: %s", tableName)
+		return err
+	}
+	return nil
+}
+
 func (c *Client) UpdateLoadedTableVersion(tableName string, version factset.PackageVersion, product string) error {
 	updateTableMetadataQueryTemplate := `REPLACE INTO metadata_table_version
 						(tablename, feed_version, sequence, date_loaded, product)
@@ -223,6 +233,15 @@ func (c *Client) CreateTablesFromSchema(contents []byte, product string) error {
 			if err != nil {
 				log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Error running query to create schema for %s", product)
 				return err
+			}
+			// update metadata table on creation of each schema table
+			// if load is unsuccessful schema tables are cleaned up by subsequent loads
+			statementSplits := strings.Split(statement, " ")
+			if statementSplits[0] == "CREATE" && statementSplits[1] == "TABLE" {
+				fmt.Printf("Table name is %s\n", statementSplits[2])
+				if err = c.UpdateLoadedTableVersion(statementSplits[2], factset.PackageVersion{0, 0}, product); err != nil {
+					return err
+				}
 			}
 		}
 	}

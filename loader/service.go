@@ -185,10 +185,10 @@ func (s *Service) doFullLoad(pkg factset.Package, currentLoadedFileMetadata fact
 
 	if currentLoadedFileMetadata.PackageVersion.FeedVersion == 0 ||
 		(currentLoadedFileMetadata.PackageVersion.FeedVersion == latestDataArchive.Version.FeedVersion && currentLoadedFileMetadata.PackageVersion.Sequence < latestDataArchive.Version.Sequence) {
-		//TODO Remove this once dailies are fully implemented
-		if err = s.db.DropTablesWithDataset(pkg.Dataset, pkg.Product); err != nil {
-			return loadedVersions, err
-		}
+
+		//if err = s.db.DropTablesWithDataset(pkg.Dataset, pkg.Product); err != nil {
+		//	return loadedVersions, err
+		//}
 
 		var localDataArchive *os.File
 		localDataArchive, err = s.factset.Download(latestDataArchive, pkg.Product)
@@ -205,6 +205,10 @@ func (s *Service) doFullLoad(pkg factset.Package, currentLoadedFileMetadata fact
 		for _, file := range localDataFiles {
 			//TODO version the file name to be table_sequence
 			tableName := getTableFromFilename(file)
+			if err = s.db.DropDataFromTable(tableName, pkg.Product); err != nil {
+				return loadedVersions, err
+			}
+
 			err = s.db.LoadTable(file, tableName)
 			if err != nil {
 				log.WithError(err).WithFields(log.Fields{"fs_product": pkg.Product}).Errorf("Error whilst loading table %s with data from file %s", tableName, file)
