@@ -15,5 +15,7 @@ resources:
     memory: 1.4Gi
 env:
   FACTSET_FTP: ""
+config:
+  logLevel: debug
 storage:
   capacity: 5Gi
