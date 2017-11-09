@@ -80,7 +80,7 @@ func (c *Client) DropTablesWithDataset(dataset string, product string) error {
 
 func (c *Client) DropDataFromTable(tableName string, product string) error {
 	deleteRowsQuery := fmt.Sprintf(`DELETE FROM %s`, tableName)
-	_, err := c.DB.Query(deleteRowsQuery)
+	_, err := c.DB.Exec(deleteRowsQuery)
 	if err != nil {
 		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Error executing query to clear data from table: %s", tableName)
 		return err
