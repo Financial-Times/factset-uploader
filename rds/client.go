@@ -238,7 +238,6 @@ func (c *Client) CreateTablesFromSchema(contents []byte, product string) error {
 			// if load is unsuccessful schema tables are cleaned up by subsequent loads
 			statementSplits := strings.Split(statement, " ")
 			if statementSplits[0] == "CREATE" && statementSplits[1] == "TABLE" {
-				fmt.Printf("Table name is %s\n", statementSplits[2])
 				if err = c.UpdateLoadedTableVersion(statementSplits[2], factset.PackageVersion{0, 0}, product); err != nil {
 					return err
 				}

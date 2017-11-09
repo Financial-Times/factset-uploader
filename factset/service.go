@@ -92,7 +92,7 @@ func (s *Service) GetLatestFile(pkg Package, isFull bool) (FSFile, error) {
 		fileType = "Delta"
 	}
 
-	fileDirectory := s.ftpServerBaseDir + fmt.Sprintf("/%s/%s", pkg.FSPackage, pkg.Product)
+	fileDirectory := s.ftpServerBaseDir + fmt.Sprintf("/%s/%s/", pkg.FSPackage, pkg.Product)
 	files, err := s.client.ReadDir(fileDirectory)
 	if err != nil {
 		log.WithError(err).WithFields(log.Fields{"fs_product": pkg.Product}).Errorf("Error reading: %s", fileDirectory)
