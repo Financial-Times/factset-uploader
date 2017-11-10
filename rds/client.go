@@ -229,14 +229,19 @@ func (c *Client) CreateTablesFromSchema(contents []byte, product string) error {
 	for _, statement := range statements {
 		statement = strings.TrimSpace(statement)
 		if statement != "" && len(statement) > 10 {
+			statementSplits := strings.Split(statement, " ")
 			_, err := c.DB.Exec(statement)
 			if err != nil {
-				log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Error running query to create schema for %s", product)
-				return err
+				if !(strings.Contains(err.Error(), fmt.Sprintf("Error 1050: Table '%s' already exists", statementSplits[2]))) {
+					log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Error running query to create schema for %s", product)
+					return err
+				} else {
+					log.WithFields(log.Fields{"fs_product": product}).Debugf("Table %s has already been created by a different package", statementSplits[2])
+					continue
+				}
 			}
 			// update metadata table on creation of each schema table
 			// if load is unsuccessful schema tables are cleaned up by subsequent loads
-			statementSplits := strings.Split(statement, " ")
 			if statementSplits[0] == "CREATE" && statementSplits[1] == "TABLE" {
 				if err = c.UpdateLoadedTableVersion(statementSplits[2], factset.PackageVersion{0, 0}, product); err != nil {
 					return err
