@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	"path"
+	"regexp"
 )
 
 // Servicer - service interface to be able to mock for testing
@@ -41,7 +43,7 @@ func NewService(sftpUser, sftpKey, sftpAddress string, sftpPort int, workspace s
 	}, nil
 }
 
-// GetSchemaInfo - Get the lastest schema info from Factset
+// GetSchemaInfo - Get the latest schema info from Factset
 func (s *Service) GetSchemaInfo(pkg Package) (*PackageVersion, error) {
 	schemaDirectory := s.ftpServerBaseDir + schemaDir + fmt.Sprintf("/docs_%s/", pkg.Dataset)
 	files, err := s.client.ReadDir(schemaDirectory)
@@ -95,7 +97,7 @@ func (s *Service) GetLatestFile(pkg Package, isFull bool) (FSFile, error) {
 		fileType = "Delta"
 	}
 
-	fileDirectory := s.ftpServerBaseDir + fmt.Sprintf("/%s/%s", pkg.FSPackage, pkg.Product)
+	fileDirectory := path.Join(s.ftpServerBaseDir, pkg.FSPackage, pkg.Product)
 	files, err := s.client.ReadDir(fileDirectory)
 	if err != nil {
 		log.WithError(err).WithFields(log.Fields{"fs_product": pkg.Product}).Errorf("Error reading: %s", fileDirectory)
@@ -107,7 +109,7 @@ func (s *Service) GetLatestFile(pkg Package, isFull bool) (FSFile, error) {
 		return mostRecentDataArchive, err
 	}
 
-	fsFiles := filterAndExtractFileInfo(pkg.Product, files, isFull)
+	fsFiles := filterAndExtractFileInfo(pkg, files, isFull)
 	if len(fsFiles) == 0 {
 		err := fmt.Errorf("no valid %s files found in: %s", fileType, fileDirectory)
 		log.WithFields(log.Fields{"fs_product": pkg.Product}).Error(err)
@@ -139,31 +141,37 @@ func (s *Service) Download(file FSFile, product string) (*os.File, error) {
 	return localFile, nil
 }
 
+func removeBundleMetadata(filePath string) string {
+	var versionRegex = regexp.MustCompile("_v[0-9]+_")
+	return versionRegex.Split(filePath, 2)[0]
+}
+
 // Filters all files in directory into weekly/daily files based on isFull variable.
 // Saves feed version and sequence for remaining files for later comparison
-func filterAndExtractFileInfo(product string, files []os.FileInfo, isFull bool) []FSFile {
+func filterAndExtractFileInfo(pkg Package, files []os.FileInfo, isFull bool) []FSFile {
 	var outputFiles []FSFile
 
 	for _, file := range files {
 		if file.IsDir() {
-			log.WithFields(log.Fields{"fs_product": product}).Debugf("File %s is a directory, skipping", file.Name())
+			log.WithFields(log.Fields{"fs_product": pkg.Product}).Debugf("File %s is a directory, skipping", file.Name())
+			continue
+		}
+
+		// filter the package to only the given bundle and version
+		if removeBundleMetadata(file.Name()) != removeBundleMetadata(pkg.Bundle) || !strings.HasPrefix(file.Name(), fmt.Sprintf("%s_v%d", pkg.Bundle, pkg.FeedVersion)) {
 			continue
 		}
 
 		var outFile FSFile
 
-		// Get the filename from the path and then take off the product name so we've got a clean start point
+		// Get the filename from the path and then take off the bundle name so we've got a clean start point
 		name := file.Name()[strings.LastIndex(file.Name(), "/")+1:]
 		outFile.Name = name // Grab the name now before we chop it up.
 		name = name[:strings.LastIndex(file.Name(), ".")]
-		name = name[len(product)+1:]
+		name = name[len(removeBundleMetadata(pkg.Bundle))+1:]
 
 		// Split the name for our parts to iterate.
 		splitName := strings.Split(name, "_")
-
-		if strings.HasSuffix(product, "v3") {
-			outFile.Version.FeedVersion = 3
-		}
 
 		// There are three possible bits remaining, sequence, feedVersion and full.
 		for _, v := range splitName {

@@ -24,28 +24,37 @@ Currently there are several categories of files from factset that are of interes
 1. Entity information that is used for our organisation information
 2. People information that is used for our people and membership information
 3. Reference information to provide on things such as controlled vocabulary i.e Role names
-4. Symbology information to provide other indentifiers such as the financial instruments
+4. Symbology information to provide other identifiers such as the financial instruments
 5. Fundamental information to provide information on the financials for entities
 
 ### Structure
-All configured packages should be separated by a ';' with each distinct package composed of four distinct parts separated by ',':
 
-        Dataset,FSPackage,Product,Version;...
+All configured packages should be separated by a `;` with each distinct package composed of five distinct parts separated by `,` :
+
+```
+Dataset,FSPackage,Product,Bundle,Version;...
+```
         
-        for example
+for example: for the package ` /datafeeds/fundamentals/ff_advanced_ap_v3/ff_advanced_der_ap_v3_full_1234.zip`
         
-        ppl,people,ppl_premium,1;...
+```
+ff,fundamentals,ff_advanced_ap_v3,ff_advanced_der_ap,3;...
+```
 
 ## Installation
+
 Download the source code, dependencies and test dependencies:
 
-        go get -u github.com/kardianos/govendor
-        go get -u github.com/Financial-Times/factset-uploader
-        cd $GOPATH/src/github.com/Financial-Times/factset-uploader
-        govendor sync
-        go build .
+```shell
+go get -u github.com/kardianos/govendor
+go get -u github.com/Financial-Times/factset-uploader
+cd $GOPATH/src/github.com/Financial-Times/factset-uploader
+govendor sync
+go build .
+```
 
 ## Running locally
+
 _How can I run it_
 
 _TODO: How do we run this locally with the whitelist on the Factset side, tunnel?_

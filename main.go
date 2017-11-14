@@ -74,7 +74,7 @@ func main() {
 	packages := app.String(cli.StringOpt{
 		Name:   "packages",
 		Value:  "",
-		Desc:   "List of packages to process (dataset,package,product,feedVersion) separated by a semicolon",
+		Desc:   "List of packages to process (dataset,package,product,bundle,feedVersion) separated by a semicolon",
 		EnvVar: "PACKAGES",
 	})
 
@@ -157,6 +157,7 @@ func convertConfig(configString string) (loader.Config, error) {
 			Dataset:     splitPkg[0],
 			FSPackage:   splitPkg[1],
 			Product:     splitPkg[2],
+			Bundle:      splitPkg[3],
 			FeedVersion: version,
 		})
 	}
