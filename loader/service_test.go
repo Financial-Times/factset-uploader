@@ -252,7 +252,7 @@ func createDBClient() *rds.Client {
 	if os.Getenv("RDS_DSN") != "" {
 		testDSN = os.Getenv("RDS_DSN")
 	} else {
-		testDSN = "root:root@/test"
+		testDSN = "root:@/test"
 	}
 
 	dbClient, _ := rds.NewClient(testDSN)

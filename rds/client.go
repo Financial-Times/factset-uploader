@@ -78,6 +78,16 @@ func (c *Client) DropTablesWithDataset(dataset string, product string) error {
 	return nil
 }
 
+func (c *Client) DropDataFromTable(tableName string, product string) error {
+	deleteRowsQuery := fmt.Sprintf(`DELETE FROM %s`, tableName)
+	_, err := c.DB.Exec(deleteRowsQuery)
+	if err != nil {
+		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Error executing query to clear data from table: %s", tableName)
+		return err
+	}
+	return nil
+}
+
 func (c *Client) UpdateLoadedTableVersion(tableName string, version factset.PackageVersion, product string) error {
 	updateTableMetadataQueryTemplate := `REPLACE INTO metadata_table_version
 						(tablename, feed_version, sequence, date_loaded, product)
@@ -219,10 +229,23 @@ func (c *Client) CreateTablesFromSchema(contents []byte, product string) error {
 	for _, statement := range statements {
 		statement = strings.TrimSpace(statement)
 		if statement != "" && len(statement) > 10 {
+			statementSplits := strings.Split(statement, " ")
 			_, err := c.DB.Exec(statement)
 			if err != nil {
-				log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Error running query to create schema for %s", product)
-				return err
+				if !(strings.Contains(err.Error(), fmt.Sprintf("Error 1050: Table '%s' already exists", statementSplits[2]))) {
+					log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Error running query to create schema for %s", product)
+					return err
+				} else {
+					log.WithFields(log.Fields{"fs_product": product}).Debugf("Table %s has already been created by a different package", statementSplits[2])
+					continue
+				}
+			}
+			// update metadata table on creation of each schema table
+			// if load is unsuccessful schema tables are cleaned up by subsequent loads
+			if statementSplits[0] == "CREATE" && statementSplits[1] == "TABLE" {
+				if err = c.UpdateLoadedTableVersion(statementSplits[2], factset.PackageVersion{0, 0}, product); err != nil {
+					return err
+				}
 			}
 		}
 	}
