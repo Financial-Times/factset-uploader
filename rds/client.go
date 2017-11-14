@@ -44,11 +44,11 @@ func NewClient(dsn string) (*Client, error) {
 }
 
 //TODO in future we should have versioning/namespacing for our schema tables so that they are only dropped after a successful reload
-func (c *Client) DropTablesWithDataset(dataset string, product string) error {
-	getTableQuery := fmt.Sprintf(`SELECT tablename FROM metadata_table_version WHERE product = '%s'`, product)
+func (c *Client) DropTablesWithProductAndBundle(product string, bundle string) error {
+	getTableQuery := fmt.Sprintf(`SELECT tablename FROM metadata_table_version WHERE product = '%s' AND bundle = '%s'`, product, bundle)
 	rows, err := c.DB.Query(getTableQuery)
 	if err != nil {
-		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Error running query to return tables matching: %s", dataset)
+		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Error running query to return tables matching: %s/%s", product, bundle)
 		return err
 	}
 
@@ -59,14 +59,14 @@ func (c *Client) DropTablesWithDataset(dataset string, product string) error {
 		var tableName string
 		err = rows.Scan(&tableName)
 		if err != nil {
-			log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Error scanning rows for tables matching: %s", dataset)
+			log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Error scanning rows for tables matching: %s/%s", product, bundle)
 			return err
 		}
 		tableNames = append(tableNames, tableName)
 	}
 
 	if len(tableNames) == 0 {
-		log.WithFields(log.Fields{"fs_product": product}).Infof("Db has no tables matching dataset: %s", dataset)
+		log.WithFields(log.Fields{"fs_product": product}).Infof("Db has no tables matching: %s/%s", product, bundle)
 		return nil
 	}
 	dropTableQuery := fmt.Sprintf(`DROP TABLES IF EXISTS %s`, strings.Join(tableNames, ", "))
@@ -88,10 +88,10 @@ func (c *Client) DropDataFromTable(tableName string, product string) error {
 	return nil
 }
 
-func (c *Client) UpdateLoadedTableVersion(tableName string, version factset.PackageVersion, product string) error {
+func (c *Client) UpdateLoadedTableVersion(tableName string, version factset.PackageVersion, product string, bundle string) error {
 	updateTableMetadataQueryTemplate := `REPLACE INTO metadata_table_version
-						(tablename, feed_version, sequence, date_loaded, product)
-						VALUES (?, ?, ?, NOW(), ?)`
+						(tablename, feed_version, sequence, date_loaded, product, bundle)
+						VALUES (?, ?, ?, NOW(), ?, ?)`
 	stmt, err := c.DB.Prepare(updateTableMetadataQueryTemplate)
 	defer stmt.Close()
 	if err != nil {
@@ -99,7 +99,7 @@ func (c *Client) UpdateLoadedTableVersion(tableName string, version factset.Pack
 		return err
 	}
 
-	res, err := stmt.Exec(tableName, version.FeedVersion, version.Sequence, product)
+	res, err := stmt.Exec(tableName, version.FeedVersion, version.Sequence, product, bundle)
 	if err != nil {
 		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("error running query to update table metadata for table: %s", tableName)
 		return err
@@ -116,9 +116,10 @@ func (c *Client) UpdateLoadedTableVersion(tableName string, version factset.Pack
 
 func (c *Client) UpdateLoadedPackageVersion(packageMetadata *factset.PackageMetadata) error {
 	var product = packageMetadata.Package.Product
+	var bundle = packageMetadata.Package.Bundle
 	updatePackageMetadataQueryTemplate := `REPLACE INTO metadata_package_version
-						(product, schema_feed_version, schema_sequence, schema_date_loaded, package_feed_version, package_sequence, package_date_loaded)
-						VALUES (?, ?, ?, ?, ?, ?, NOW())`
+						(product, bundle, schema_feed_version, schema_sequence, schema_date_loaded, package_feed_version, package_sequence, package_date_loaded)
+						VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`
 	stmt, err := c.DB.Prepare(updatePackageMetadataQueryTemplate)
 	defer stmt.Close()
 	if err != nil {
@@ -126,7 +127,7 @@ func (c *Client) UpdateLoadedPackageVersion(packageMetadata *factset.PackageMeta
 		return err
 	}
 
-	res, err := stmt.Exec(product, packageMetadata.SchemaVersion.FeedVersion, packageMetadata.SchemaVersion.Sequence, packageMetadata.SchemaLoadedDate, packageMetadata.PackageVersion.FeedVersion, packageMetadata.PackageVersion.Sequence)
+	res, err := stmt.Exec(product, bundle, packageMetadata.SchemaVersion.FeedVersion, packageMetadata.SchemaVersion.Sequence, packageMetadata.SchemaLoadedDate, packageMetadata.PackageVersion.FeedVersion, packageMetadata.PackageVersion.Sequence)
 	if err != nil {
 		log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Error executing query to update package metadata for product: %s", product)
 		return err
@@ -191,6 +192,7 @@ func (c *Client) GetPackageMetadata(pkg factset.Package) (factset.PackageMetadat
 func (c *Client) LoadMetadataTables() error {
 	query := `CREATE TABLE IF NOT EXISTS metadata_package_version (
 			product varchar(255) NOT NULL,
+			bundle varchar(255) NOT NULL,
 			schema_feed_version INT,
 			schema_sequence INT,
 			schema_date_loaded DATETIME,
@@ -210,7 +212,8 @@ func (c *Client) LoadMetadataTables() error {
 			feed_version INT,
 			sequence INT,
 			date_loaded DATETIME,
-			product  varchar(255) NOT NULL,
+			product varchar(255) NOT NULL,
+			bundle  varchar(255) NOT NULL,
 			PRIMARY KEY (tablename)
 		);`
 
@@ -223,7 +226,7 @@ func (c *Client) LoadMetadataTables() error {
 
 // CreateTablesFromSchema
 // Takes the semicolon delimited contents of the create table file and creates the tables.
-func (c *Client) CreateTablesFromSchema(contents []byte, product string) error {
+func (c *Client) CreateTablesFromSchema(contents []byte, product string, bundle string) error {
 	statements := strings.Split(string(contents), ";")
 
 	for _, statement := range statements {
@@ -243,7 +246,7 @@ func (c *Client) CreateTablesFromSchema(contents []byte, product string) error {
 			// update metadata table on creation of each schema table
 			// if load is unsuccessful schema tables are cleaned up by subsequent loads
 			if statementSplits[0] == "CREATE" && statementSplits[1] == "TABLE" {
-				if err = c.UpdateLoadedTableVersion(statementSplits[2], factset.PackageVersion{0, 0}, product); err != nil {
+				if err = c.UpdateLoadedTableVersion(statementSplits[2], factset.PackageVersion{0, 0}, product, bundle); err != nil {
 					return err
 				}
 			}

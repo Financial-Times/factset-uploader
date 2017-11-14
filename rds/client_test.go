@@ -44,7 +44,7 @@ func TestClientUpdateAndGetLoadedVersion(t *testing.T) {
 	err := dbClient.LoadMetadataTables()
 	assert.NoError(t, err)
 
-	err = dbClient.UpdateLoadedTableVersion("testTable", factset.PackageVersion{1, 10}, "test")
+	err = dbClient.UpdateLoadedTableVersion("testTable", factset.PackageVersion{1, 10}, "test", "test")
 	assert.NoError(t, err)
 
 	version, err := getLoadedVersion("testTable")
@@ -58,11 +58,11 @@ func TestClientUpdateAndGetLoadedVersion(t *testing.T) {
 //
 //	assert.Equal(t, 5, countTestTables())
 //
-//	err := dbClient.DropTablesWithDataset("foo", "foo_entity")
+//	err := dbClient.DropTablesWithProduct("foo", "foo_entity")
 //	assert.NoError(t, err)
 //	assert.Equal(t, 2, countTestTables())
 //
-//	err = dbClient.DropTablesWithDataset("fake", "fke_entity")
+//	err = dbClient.DropTablesWithProduct("fake", "fke_entity")
 //	assert.NoError(t, err)
 //	assert.Equal(t, 2, countTestTables())
 //}
@@ -70,8 +70,8 @@ func TestClientUpdateAndGetLoadedVersion(t *testing.T) {
 func TestClientGetPackageMetadata(t *testing.T) {
 	dbClient.LoadMetadataTables()
 	defer removeMetadataTables()
-	_, err := dbClient.DB.Exec(`INSERT INTO metadata_package_version (product, schema_feed_version, schema_sequence, schema_date_loaded, package_feed_version, package_sequence, package_date_loaded)
-										VALUES ('foo_fooey_advanced', 2, 1234, '2017-01-02 03:04:05', 2, 5678, '2017-06-07 08:09:10')`)
+	_, err := dbClient.DB.Exec(`INSERT INTO metadata_package_version (product, bundle, schema_feed_version, schema_sequence, schema_date_loaded, package_feed_version, package_sequence, package_date_loaded)
+										VALUES ('foo_fooey_advanced', 'foo_fooey_advanced', 2, 1234, '2017-01-02 03:04:05', 2, 5678, '2017-06-07 08:09:10')`)
 	assert.NoError(t, err)
 
 	pkgMetadata, err := dbClient.GetPackageMetadata(factset.Package{
@@ -85,6 +85,7 @@ func TestClientGetPackageMetadata(t *testing.T) {
 			Dataset:   "foo",
 			FSPackage: "fooey",
 			Product:   "foo_fooey_advanced",
+			Bundle:    "foo_fooey_advanced",
 		},
 		SchemaVersion: factset.PackageVersion{
 			FeedVersion: 2,
