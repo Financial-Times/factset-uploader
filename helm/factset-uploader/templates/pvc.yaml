@@ -4,7 +4,10 @@ metadata:
   name: "{{ .Values.service.name }}-pvc"
 spec:
   accessModes:
-    - ReadWriteOnce
+    - ReadWriteMany
   resources:
     requests:
       storage: {{ .Values.storage.capacity }}
+  selector:
+    matchLabels:
+      provisioned-for: "{{.Values.service.name}}"
