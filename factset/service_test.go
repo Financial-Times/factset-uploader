@@ -310,8 +310,9 @@ func (m *MockSftpClient) Download(path string, dest string, product string) erro
 	return m.err
 }
 
-func (m *MockSftpClient) Close() {
+func (m *MockSftpClient) Close() error {
 	os.Remove("./ppl_test_v1_full_1234.zip")
+	return nil
 }
 
 func copyFile(path string) error {
@@ -333,9 +334,5 @@ func copyFile(path string) error {
 	}
 
 	err = destFile.Sync()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }

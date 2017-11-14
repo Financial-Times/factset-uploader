@@ -9,12 +9,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Servicer - service interface to be able to mock for testing
 type Servicer interface {
 	GetSchemaInfo(pkg Package) (*PackageVersion, error)
 	GetLatestFile(pkg Package, isFull bool) (FSFile, error)
 	Download(file FSFile, product string) (*os.File, error)
 }
 
+// Service - Factset service
 type Service struct {
 	client           sftpClienter
 	workspace        string
@@ -24,6 +26,7 @@ type Service struct {
 var baseDir = "/datafeeds"
 var schemaDir = "/documents"
 
+// NewService - create a new Service(r)
 func NewService(sftpUser, sftpKey, sftpAddress string, sftpPort int, workspace string) (Servicer, error) {
 
 	sftpClient, err := newSFTPClient(sftpUser, sftpKey, sftpAddress, sftpPort)
@@ -38,6 +41,7 @@ func NewService(sftpUser, sftpKey, sftpAddress string, sftpPort int, workspace s
 	}, nil
 }
 
+// GetSchemaInfo - Get the lastest schema info from Factset
 func (s *Service) GetSchemaInfo(pkg Package) (*PackageVersion, error) {
 	schemaDirectory := s.ftpServerBaseDir + schemaDir + fmt.Sprintf("/docs_%s/", pkg.Dataset)
 	files, err := s.client.ReadDir(schemaDirectory)
@@ -46,7 +50,7 @@ func (s *Service) GetSchemaInfo(pkg Package) (*PackageVersion, error) {
 		return nil, err
 	}
 	if len(files) == 0 {
-		err := fmt.Errorf("No schema found in: %s", schemaDirectory)
+		err := fmt.Errorf("no schema found in: %s", schemaDirectory)
 		log.WithFields(log.Fields{"fs_product": pkg.Product}).Error(err)
 		return nil, err
 	}
@@ -73,15 +77,14 @@ func (s *Service) GetSchemaInfo(pkg Package) (*PackageVersion, error) {
 	}
 
 	if latestSchema == nil || latestSchema.FeedVersion == -1 || latestSchema.Sequence == -1 {
-		err := fmt.Errorf("No valid schema found in: %s", schemaDirectory)
+		err := fmt.Errorf("no valid schema found in: %s", schemaDirectory)
 		log.WithFields(log.Fields{"fs_product": pkg.Product}).Error(err)
 		return nil, err
 	}
 	return latestSchema, nil
 }
 
-// Get list of available files for a package
-// Get files after given version for a package
+// GetLatestFile - Get latest file for a package
 func (s *Service) GetLatestFile(pkg Package, isFull bool) (FSFile, error) {
 	var mostRecentDataArchive FSFile
 	var mostRecentFileName string
@@ -99,14 +102,14 @@ func (s *Service) GetLatestFile(pkg Package, isFull bool) (FSFile, error) {
 		return mostRecentDataArchive, err
 	}
 	if len(files) == 0 {
-		err := fmt.Errorf("No data archives found in: %s", fileDirectory)
+		err := fmt.Errorf("no data archives found in: %s", fileDirectory)
 		log.WithFields(log.Fields{"fs_product": pkg.Product}).Error(err)
 		return mostRecentDataArchive, err
 	}
 
 	fsFiles := filterAndExtractFileInfo(pkg.Product, files, isFull)
 	if len(fsFiles) == 0 {
-		err := fmt.Errorf("No valid %s files found in: %s", fileType, fileDirectory)
+		err := fmt.Errorf("no valid %s files found in: %s", fileType, fileDirectory)
 		log.WithFields(log.Fields{"fs_product": pkg.Product}).Error(err)
 		return mostRecentDataArchive, err
 	}
@@ -122,6 +125,7 @@ func (s *Service) GetLatestFile(pkg Package, isFull bool) (FSFile, error) {
 	return mostRecentDataArchive, nil
 }
 
+// Download - downloads the file from Factset and provides a local file object
 func (s *Service) Download(file FSFile, product string) (*os.File, error) {
 	err := s.client.Download(file.Path, s.workspace, product)
 	if err != nil {
@@ -157,12 +161,16 @@ func filterAndExtractFileInfo(product string, files []os.FileInfo, isFull bool) 
 		// Split the name for our parts to iterate.
 		splitName := strings.Split(name, "_")
 
+		if strings.HasSuffix(product, "v3") {
+			outFile.Version.FeedVersion = 3
+		}
+
 		// There are three possible bits remaining, sequence, feedVersion and full.
 		for _, v := range splitName {
 			if v == "full" {
 				outFile.IsFull = true
 			}
-			if v[0] == 'v' {
+			if len(v) > 0 && v[0] == 'v' {
 				if i, err := strconv.Atoi(v[1:]); err == nil {
 					outFile.Version.FeedVersion = i
 				}

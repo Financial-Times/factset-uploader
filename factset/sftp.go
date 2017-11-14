@@ -18,7 +18,7 @@ type sftpClient struct {
 type sftpClienter interface {
 	ReadDir(dir string) ([]os.FileInfo, error)
 	Download(path string, dest string, product string) error
-	Close()
+	Close() error
 }
 
 func newSFTPClient(user, key, address string, port int) (*sftpClient, error) {
@@ -95,8 +95,11 @@ func (s *sftpClient) save(file *sftp.File, dest string, product string) error {
 	return nil
 }
 
-func (s *sftpClient) Close() {
+func (s *sftpClient) Close() error {
 	if s.sftp != nil {
-		s.sftp.Close()
+		if err := s.sftp.Close(); err != nil {
+			return err
+		}
 	}
+	return nil
 }
