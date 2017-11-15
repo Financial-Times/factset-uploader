@@ -218,7 +218,7 @@ func (s *Service) doFullLoad(pkg factset.Package, currentLoadedFileMetadata fact
 				return loadedVersions, err
 			}
 
-			err = s.db.UpdateLoadedTableVersion(tableName, latestDataArchive.Version, pkg.Product, pkg.Bundle)
+			err = s.db.UpdateLoadedTableVersion(tableName, latestDataArchive.Version, pkg)
 			if err != nil {
 				return loadedVersions, err
 			}
@@ -327,7 +327,7 @@ func (s *Service) reloadSchema(pkg factset.Package, schemaVersion *factset.Packa
 				log.WithError(err).WithFields(log.Fields{"fs_product": pkg.Product}).Errorf("Could not read file: %s", file)
 				return err
 			}
-			err = s.db.CreateTablesFromSchema(fileContents, pkg.Product, pkg.Bundle)
+			err = s.db.CreateTablesFromSchema(fileContents, pkg)
 			if err != nil {
 				return err
 			}

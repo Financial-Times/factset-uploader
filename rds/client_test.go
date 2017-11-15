@@ -44,7 +44,7 @@ func TestClientUpdateAndGetLoadedVersion(t *testing.T) {
 	err := dbClient.LoadMetadataTables()
 	assert.NoError(t, err)
 
-	err = dbClient.UpdateLoadedTableVersion("testTable", factset.PackageVersion{1, 10}, "test", "test")
+	err = dbClient.UpdateLoadedTableVersion("testTable", factset.PackageVersion{1, 10}, factset.Package{Product: "test", Bundle: "test"})
 	assert.NoError(t, err)
 
 	version, err := getLoadedVersion("testTable")
@@ -78,6 +78,7 @@ func TestClientGetPackageMetadata(t *testing.T) {
 		Dataset:   "foo",
 		FSPackage: "fooey",
 		Product:   "foo_fooey_advanced",
+		Bundle:    "foo_fooey_advanced",
 	})
 	assert.NoError(t, err)
 	assert.EqualValues(t, factset.PackageMetadata{
