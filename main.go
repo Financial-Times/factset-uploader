@@ -148,7 +148,7 @@ func convertConfig(configString string) (loader.Config, error) {
 	splitConfig := strings.Split(configString, ";")
 	for _, pkg := range splitConfig {
 		splitPkg := strings.Split(pkg, ",")
-		if len(splitPkg) != 4 {
+		if len(splitPkg) != 5 {
 			return loader.Config{}, errors.New("package config is incorrectly configured; it has the wrong number of values. See readme for instructions")
 		}
 
