@@ -59,14 +59,14 @@ func (c *Client) DropTablesWithProductAndBundle(product string, bundle string) e
 		var tableName string
 		err = rows.Scan(&tableName)
 		if err != nil {
-			log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Error scanning rows for tables matching: product = %s & bundle = %s", product, bundle)
+			log.WithError(err).WithFields(log.Fields{"fs_product": product}).Errorf("Error scanning rows for tables matching: product = %s and bundle = %s", product, bundle)
 			return err
 		}
 		tableNames = append(tableNames, tableName)
 	}
 
 	if len(tableNames) == 0 {
-		log.WithFields(log.Fields{"fs_product": product}).Infof("Db has no tables matching: product = %s & bundle = %s", product, bundle)
+		log.WithFields(log.Fields{"fs_product": product}).Infof("Db has no tables matching: product = %s and bundle = %s", product, bundle)
 		return nil
 	}
 	dropTableQuery := fmt.Sprintf(`DROP TABLES IF EXISTS %s`, strings.Join(tableNames, ", "))
