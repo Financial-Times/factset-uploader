@@ -1,6 +1,7 @@
 package factset
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path"
@@ -43,8 +44,8 @@ func newSFTPClient(user, key, address string, port int) (*sftpClient, error) {
 
 	ticker := time.NewTicker(time.Second * 10)
 	go func() {
-		for _ := range ticker.C {
-			tcpConn.SendRequest("keepalive@ft.com", true, nil)
+		for f := range ticker.C {
+			tcpConn.SendRequest(fmt.Sprintf("keepalive%s@ft.com", f), true, nil)
 		}
 	}()
 
