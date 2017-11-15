@@ -152,7 +152,7 @@ func convertConfig(configString string) (loader.Config, error) {
 			return loader.Config{}, errors.New("package config is incorrectly configured; it has the wrong number of values. See readme for instructions")
 		}
 
-		version, _ := strconv.Atoi(splitPkg[3])
+		version, _ := strconv.Atoi(splitPkg[4])
 		config.AddPackage(factset.Package{
 			Dataset:     splitPkg[0],
 			FSPackage:   splitPkg[1],

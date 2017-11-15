@@ -6,9 +6,10 @@ import (
 	"strconv"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
 	"path"
 	"regexp"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // Servicer - service interface to be able to mock for testing
