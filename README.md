@@ -55,9 +55,7 @@ go build .
 
 ## Running locally
 
-_How can I run it_
-
-_TODO: How do we run this locally with the whitelist on the Factset side, tunnel?_
+This needs to be deployed to be able to connect to the the Factset SFTP which has white listed ip addresses
 
 1. Install MySql
     brew info mysql56
@@ -99,23 +97,19 @@ _TODO: How do we run this locally with the whitelist on the Factset side, tunnel
 
 Options:
 
-        --app-system-code="factset-uploader"   System Code of the application ($APP_SYSTEM_CODE)
+        --app-system-code="factset-uploader"        System Code of the application ($APP_SYSTEM_CODE)
         --app-name="factset-uploader"               Application name ($APP_NAME)
-        --awsAccessKey=xxx
-        --awsSecretKey=xxx
-        --bucketName=com.ft.coco-factset-data
+        --log-level=info
         --factsetUser=xxx
         --factsetKey=xxx
         --factsetFTP=fts-sftp.factset.com
         --factsetPort=6671
-        --log-level=info
-        --resources=/directory/without/version:zip_or_txt_file_to_download
+        --packages=Dataset,FSPackage,Product,Bundle,Version;...
+        --rds_dsn=<db_username>:<db_password>@tcp(<rds_url)/<database_name>     Details of the Aurora DB
 
 The resources argument specifies a comma separated list of archives and files within that archive to be downloaded from Factset FTP server.
         
 3. Test:
-
-    1. _How should we run this locally_
 
 ## Build and deployment
 * Built by Docker Hub on merge to master: [coco/factset-uploader](https://hub.docker.com/r/coco/factset-uploader/)
