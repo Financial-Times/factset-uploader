@@ -92,6 +92,13 @@ func main() {
 		HideValue: true,
 	})
 
+	isRunning := app.Bool(cli.BoolOpt{
+		Name:   "isRunning",
+		Value:  false,
+		Desc:   "Whether or not app should run, only set this to true if you want to reload rds instance",
+		EnvVar: "IS_RUNNING",
+	})
+
 	lvl, err := log.ParseLevel(*logLevel)
 	if err != nil {
 		log.WithError(err).WithFields(log.Fields{"logLevel": *logLevel}).Fatal("Cannot parse log level")
@@ -106,6 +113,10 @@ func main() {
 	}).Infof("[Startup] %v is starting", *appName)
 
 	app.Action = func() {
+		if *isRunning == false {
+			log.Fatal("isRunning flag set to false, set to true and restart application if you are sure you want to load data")
+			return
+		}
 		splitConfig := strings.Split(*workspace, "/")
 		if splitConfig[len(splitConfig)-1] != "factset" {
 			log.Fatal("Specified workspace is not valid as highest level folder is not 'factset'")
