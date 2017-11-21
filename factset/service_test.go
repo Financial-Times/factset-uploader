@@ -70,7 +70,7 @@ func Test_GetSchemaInfo(t *testing.T) {
 			"../fixtures/datafeeds/documents/docs_missingSchema",
 			nil,
 			"missingSchema",
-			errors.New("no valid schema found in: "),
+			errors.New("No valid schema found in: "),
 			-1,
 			-1,
 		},
@@ -115,7 +115,7 @@ func Test_GetSchemaInfo_EmptyDir(t *testing.T) {
 	fs := &Service{&MockSftpClient{files, nil}, "", "../fixtures/datafeeds"}
 	_, err = fs.GetSchemaInfo(pkg)
 	assert.Error(t, err, "Test failed, directory should be empty")
-	assert.Contains(t, err.Error(), "no schema found in: ", "Test failed, unexpected error was returned")
+	assert.Contains(t, err.Error(), "No schema found in: ", "Test failed, unexpected error was returned")
 	defer os.Remove(directory)
 }
 
@@ -245,7 +245,7 @@ func Test_GetLatestFile_EmptyDirectory(t *testing.T) {
 	fs := &Service{&MockSftpClient{files, nil}, "", "../fixtures/datafeeds"}
 	_, err = fs.GetLatestFile(pkg, true)
 	assert.Error(t, err, "Test failed, directory should be empty")
-	assert.Contains(t, err.Error(), "no data archives found in: ../fixtures/datafeeds/people/ppl_test", "Test failed, returned unexpected error")
+	assert.Contains(t, err.Error(), "No data archives found in: ../fixtures/datafeeds/people/ppl_test", "Test failed, returned unexpected error")
 	defer os.Remove(directory)
 }
 
@@ -259,11 +259,11 @@ func Test_GetLatestFile_NestedDirectory(t *testing.T) {
 	//Full load error
 	_, err = fs.GetLatestFile(pkg, true)
 	assert.Error(t, err, "Test failed, directory should be empty")
-	assert.Contains(t, err.Error(), "no valid Full files found in: ../fixtures/datafeeds/people/ppl_test", "Test failed, mismatched error codes")
+	assert.Contains(t, err.Error(), "No valid Full files found in: ../fixtures/datafeeds/people/ppl_test", "Test failed, mismatched error codes")
 	//Delta load error
 	_, err = fs.GetLatestFile(pkg, false)
 	assert.Error(t, err, "Test failed, directory should be empty")
-	assert.Contains(t, err.Error(), "no valid Delta files found in: ../fixtures/datafeeds/people/ppl_test", "Test failed, mismatched error codes")
+	assert.Contains(t, err.Error(), "No valid Delta files found in: ../fixtures/datafeeds/people/ppl_test", "Test failed, mismatched error codes")
 	defer os.RemoveAll(directory)
 }
 
