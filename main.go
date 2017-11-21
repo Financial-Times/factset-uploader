@@ -3,8 +3,18 @@ package main
 import (
 	"os"
 
-	log "github.com/Sirupsen/logrus"
+	"errors"
+	"strings"
+
+	"strconv"
+
+	_ "net/http/pprof"
+
+	"github.com/Financial-Times/factset-uploader/factset"
+	"github.com/Financial-Times/factset-uploader/loader"
+	"github.com/Financial-Times/factset-uploader/rds"
 	"github.com/jawher/mow.cli"
+	log "github.com/sirupsen/logrus"
 )
 
 const appDescription = "Downloads the factset files from Factset SFTP and sends them to S3"
@@ -28,33 +38,23 @@ func main() {
 
 	logLevel := app.String(cli.StringOpt{
 		Name:   "logLevel",
-		Value:  "INFO",
+		Value:  "info",
 		Desc:   "Log level",
 		EnvVar: "LOG_LEVEL",
 	})
 
-	awsAccessKey := app.String(cli.StringOpt{
-		Name:   "aws-access-key-id",
-		Desc:   "s3 access key",
-		EnvVar: "AWS_ACCESS_KEY_ID",
-	})
-
-	awsSecretKey := app.String(cli.StringOpt{
-		Name:   "aws-secret-access-key",
-		Desc:   "s3 secret key",
-		EnvVar: "AWS_SECRET_ACCESS_KEY",
-	})
-
 	factsetUser := app.String(cli.StringOpt{
-		Name:   "factsetUsername",
-		Desc:   "Factset username",
-		EnvVar: "FACTSET_USER",
+		Name:      "factsetUsername",
+		Desc:      "Factset username",
+		EnvVar:    "FACTSET_USER",
+		HideValue: true,
 	})
 
 	factsetKey := app.String(cli.StringOpt{
-		Name:   "factsetKey",
-		Desc:   "Key to ssh key",
-		EnvVar: "FACTSET_KEY",
+		Name:      "factsetKey",
+		Desc:      "Key to ssh key",
+		EnvVar:    "FACTSET_KEY",
+		HideValue: true,
 	})
 
 	factsetFTP := app.String(cli.StringOpt{
@@ -71,18 +71,32 @@ func main() {
 		EnvVar: "FACTSET_PORT",
 	})
 
-	resources := app.String(cli.StringOpt{
-		Name:   "factsetResources",
+	packages := app.String(cli.StringOpt{
+		Name:   "packages",
 		Value:  "",
-		Desc:   "factset resources to be loaded",
-		EnvVar: "FACTSET_RESOURCES",
+		Desc:   "List of packages to process (dataset,package,product,bundle,feedVersion) separated by a semicolon",
+		EnvVar: "PACKAGES",
 	})
 
-	bucketName := app.String(cli.StringOpt{
-		Name:   "bucketName",
-		Value:  "com.ft.coco-factset-data",
-		Desc:   "S3 Bucket Location",
-		EnvVar: "BUCKET_NAME",
+	workspace := app.String(cli.StringOpt{
+		Name:   "workspace",
+		Value:  "/vol/factset",
+		Desc:   "Location to be used to download and process files from, should end in 'factset'. This directory will be cleared down and recreated on application start so be very careful",
+		EnvVar: "WORKSPACE",
+	})
+
+	rdsDSN := app.String(cli.StringOpt{
+		Name:      "rdsDSN",
+		Desc:      "DSN to connect to the RDS e.g. user:pass@host/schema - it should not contain any parameters",
+		EnvVar:    "RDS_DSN",
+		HideValue: true,
+	})
+
+	isRunning := app.Bool(cli.BoolOpt{
+		Name:   "isRunning",
+		Value:  false,
+		Desc:   "Whether or not app should run, only set this to true if you want to reload rds instance",
+		EnvVar: "IS_RUNNING",
 	})
 
 	lvl, err := log.ParseLevel(*logLevel)
@@ -93,14 +107,45 @@ func main() {
 	log.SetFormatter(&log.JSONFormatter{})
 
 	log.WithFields(log.Fields{
-		"APP_SYSTEM_CODE":   *appSystemCode,
-		"LOG_LEVEL":         *logLevel,
-		"FACTSET_FTP":       *factsetFTP,
-		"FACTSET_RESOURCES": *resources,
-		"BUCKET_NAME":       *bucketName,
+		"APP_SYSTEM_CODE": *appSystemCode,
+		"LOG_LEVEL":       *logLevel,
+		"FACTSET_FTP":     *factsetFTP,
 	}).Infof("[Startup] %v is starting", *appName)
 
-	runService(awsAccessKey, awsSecretKey, factsetUser, factsetKey, factsetFTP, factsetPort, resources, bucketName)
+	app.Action = func() {
+		if *isRunning == false {
+			log.Fatal("isRunning flag set to false, set to true and restart application if you are sure you want to load data")
+			return
+		}
+		splitConfig := strings.Split(*workspace, "/")
+		if splitConfig[len(splitConfig)-1] != "factset" {
+			log.Fatal("Specified workspace is not valid as highest level folder is not 'factset'")
+			return
+		}
+		factsetService, err := factset.NewService(*factsetUser, *factsetKey, *factsetFTP, *factsetPort, *workspace)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+		rdsService, err := rds.NewClient(*rdsDSN)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+		config, err := convertConfig(*packages)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+		factsetLoader := loader.NewService(config, rdsService, factsetService, *workspace)
+		factsetLoader.LoadPackages()
+		log.Infof("%v is ending", *appName)
+		return
+	}
+
 	err = app.Run(os.Args)
 	if err != nil {
 		log.Errorf("App could not start, error=[%s]\n", err)
@@ -108,7 +153,25 @@ func main() {
 	}
 }
 
-func runService(awsAccessKey *string, awsSecretKey *string, factsetUser *string, factsetKey *string, factsetFTP *string, factsetPort *int, resources *string, bucketName *string) {
-	// Do something with all of this
-	return
+func convertConfig(configString string) (loader.Config, error) {
+
+	var config loader.Config
+	splitConfig := strings.Split(configString, ";")
+	for _, pkg := range splitConfig {
+		splitPkg := strings.Split(pkg, ",")
+		if len(splitPkg) != 5 {
+			return loader.Config{}, errors.New("package config is incorrectly configured; it has the wrong number of values. See readme for instructions")
+		}
+
+		version, _ := strconv.Atoi(splitPkg[4])
+		config.AddPackage(factset.Package{
+			Dataset:     splitPkg[0],
+			FSPackage:   splitPkg[1],
+			Product:     splitPkg[2],
+			Bundle:      splitPkg[3],
+			FeedVersion: version,
+		})
+	}
+
+	return config, nil
 }

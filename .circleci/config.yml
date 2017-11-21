@@ -8,6 +8,19 @@ jobs:
           GOPATH: /go
           CIRCLE_TEST_REPORTS: /tmp/test-results
           CIRCLE_COVERAGE_REPORT: /tmp/coverage-results
+          RDS_DSN: "root:password@/test"
+      - image: mysql:5.6
+        environment:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: test
+        ports:
+          - 3306:3306
+      - image: ethanheadspace/mysql
+        environment:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: test2
+        ports:
+          - 3307:3306
     steps:
       - checkout
       - run:

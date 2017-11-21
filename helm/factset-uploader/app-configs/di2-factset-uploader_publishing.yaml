@@ -1,0 +1,9 @@
+# Values used for the deployed application.
+service:
+  name: di2-factset-uploader
+  packages: "ent,entity,ent_entity_advanced,1"
+  rds_dsn_secret: di2_factset_uploader.rds_dsn
+
+env:
+  FACTSET_FTP: fts-sftp.factset.com
+  LOG_LEVEL: info
