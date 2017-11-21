@@ -50,7 +50,7 @@ func (s *Service) GetSchemaInfo(pkg Package) (*PackageVersion, error) {
 		return nil, err
 	}
 	if len(files) == 0 {
-		err := fmt.Errorf("no schema found in: %s", schemaDirectory)
+		err := fmt.Errorf("No schema found in: %s", schemaDirectory)
 		log.WithFields(log.Fields{"fs_product": pkg.Product}).Error(err)
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func (s *Service) GetSchemaInfo(pkg Package) (*PackageVersion, error) {
 	}
 
 	if latestSchema == nil || latestSchema.FeedVersion == -1 || latestSchema.Sequence == -1 {
-		err := fmt.Errorf("no valid schema found in: %s", schemaDirectory)
+		err := fmt.Errorf("No valid schema found in: %s", schemaDirectory)
 		log.WithFields(log.Fields{"fs_product": pkg.Product}).Error(err)
 		return nil, err
 	}
@@ -102,14 +102,14 @@ func (s *Service) GetLatestFile(pkg Package, isFull bool) (FSFile, error) {
 		return mostRecentDataArchive, err
 	}
 	if len(files) == 0 {
-		err := fmt.Errorf("no data archives found in: %s", fileDirectory)
+		err := fmt.Errorf("No data archives found in: %s", fileDirectory)
 		log.WithFields(log.Fields{"fs_product": pkg.Product}).Error(err)
 		return mostRecentDataArchive, err
 	}
 
 	fsFiles := filterAndExtractFileInfo(pkg.Product, files, isFull)
 	if len(fsFiles) == 0 {
-		err := fmt.Errorf("no valid %s files found in: %s", fileType, fileDirectory)
+		err := fmt.Errorf("No valid %s files found in: %s", fileType, fileDirectory)
 		log.WithFields(log.Fields{"fs_product": pkg.Product}).Error(err)
 		return mostRecentDataArchive, err
 	}
