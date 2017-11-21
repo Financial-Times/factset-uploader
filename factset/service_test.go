@@ -15,6 +15,7 @@ var pkg = Package{
 	Dataset:     "ppl",
 	FSPackage:   "people",
 	Product:     "ppl_test",
+	Bundle:      "ppl_test",
 	FeedVersion: 1,
 }
 
@@ -69,7 +70,7 @@ func Test_GetSchemaInfo(t *testing.T) {
 			"../fixtures/datafeeds/documents/docs_missingSchema",
 			nil,
 			"missingSchema",
-			errors.New("No valid schema found in: "),
+			errors.New("no valid schema found in: "),
 			-1,
 			-1,
 		},
@@ -114,7 +115,7 @@ func Test_GetSchemaInfo_EmptyDir(t *testing.T) {
 	fs := &Service{&MockSftpClient{files, nil}, "", "../fixtures/datafeeds"}
 	_, err = fs.GetSchemaInfo(pkg)
 	assert.Error(t, err, "Test failed, directory should be empty")
-	assert.Contains(t, err.Error(), "No schema found in: ", "Test failed, unexpected error was returned")
+	assert.Contains(t, err.Error(), "no schema found in: ", "Test failed, unexpected error was returned")
 	defer os.Remove(directory)
 }
 
@@ -123,6 +124,7 @@ func Test_GetLatestFile(t *testing.T) {
 	testCases := []struct {
 		testName            string
 		testDirectory       string
+		testPackage         Package
 		readDirErr          error
 		fileSuffix          string
 		isFullLoad          bool
@@ -133,76 +135,81 @@ func Test_GetLatestFile(t *testing.T) {
 		expectedFeedVersion int
 	}{
 		{
-			"Success when file and directory exist",
-			"../fixtures/datafeeds/people/ppl_test/ppl_singleZip",
-			nil,
-			"singleZip",
-			true,
-			nil,
-			"ppl_test_v1_full_1234.zip",
-			"../fixtures/datafeeds/people/ppl_test/ppl_test_v1_full_1234.zip",
-			1234,
-			1,
+			testName:            "Success when file and directory exist",
+			testDirectory:       "../fixtures/datafeeds/people/ppl_test/ppl_singleZip",
+			testPackage:         pkg,
+			fileSuffix:          "singleZip",
+			isFullLoad:          true,
+			expectedFileName:    "ppl_test_v1_full_1234.zip",
+			expectedPath:        "../fixtures/datafeeds/people/ppl_test/ppl_test_v1_full_1234.zip",
+			expectedSequence:    1234,
+			expectedFeedVersion: 1,
 		},
 		{
-			"Error on non-existent folder directory",
-			"../fixtures/datafeeds/people/ppl_test/ppl_nonExistent",
-			errors.New("no such file or directory"),
-			"nonExistent",
-			false,
-			nil,
-			"",
-			"",
-			0,
-			0,
+			testName:      "Error on non-existent folder directory",
+			testDirectory: "../fixtures/datafeeds/people/ppl_test/ppl_nonExistent",
+			testPackage:   pkg,
+			readDirErr:    errors.New("no such file or directory"),
+			fileSuffix:    "nonExistent",
 		},
 		{
-			"Returns file with most recent sequence with all full files",
-			"../fixtures/datafeeds/people/ppl_test/ppl_multiSequenceFull",
-			nil,
-			"multiSequenceFull",
-			true,
-			nil,
-			"ppl_test_v1_full_5678.zip",
-			"../fixtures/datafeeds/people/ppl_test/ppl_test_v1_full_5678.zip",
-			5678,
-			1,
+			testName:            "Returns file with most recent sequence with all full files",
+			testDirectory:       "../fixtures/datafeeds/people/ppl_test/ppl_multiSequenceFull",
+			testPackage:         pkg,
+			fileSuffix:          "multiSequenceFull",
+			isFullLoad:          true,
+			expectedFileName:    "ppl_test_v1_full_5678.zip",
+			expectedPath:        "../fixtures/datafeeds/people/ppl_test/ppl_test_v1_full_5678.zip",
+			expectedSequence:    5678,
+			expectedFeedVersion: 1,
 		},
 		{
-			"Returns file with most recent sequence with all delta files",
-			"../fixtures/datafeeds/people/ppl_test/ppl_multiSequenceDelta",
-			nil,
-			"multiSequenceDelta",
-			false,
-			nil,
-			"ppl_test_v1_5678.zip",
-			"../fixtures/datafeeds/people/ppl_test/ppl_test_v1_5678.zip",
-			5678,
-			1,
+			testName:            "Returns file with most recent sequence with all delta files",
+			testDirectory:       "../fixtures/datafeeds/people/ppl_test/ppl_multiSequenceDelta",
+			testPackage:         pkg,
+			fileSuffix:          "multiSequenceDelta",
+			expectedFileName:    "ppl_test_v1_5678.zip",
+			expectedPath:        "../fixtures/datafeeds/people/ppl_test/ppl_test_v1_5678.zip",
+			expectedSequence:    5678,
+			expectedFeedVersion: 1,
 		},
 		{
-			"Picks correct file for full load with daily and weekly files",
-			"../fixtures/datafeeds/people/ppl_test/ppl_pickCorrectZip",
-			nil,
-			"pickCorrectZip",
-			true,
-			nil,
-			"ppl_test_v1_full_5678.zip",
-			"../fixtures/datafeeds/people/ppl_test/ppl_test_v1_full_5678.zip",
-			5678,
-			1,
+			testName:            "Picks correct file for full load with daily and weekly files",
+			testDirectory:       "../fixtures/datafeeds/people/ppl_test/ppl_pickCorrectZip",
+			testPackage:         pkg,
+			fileSuffix:          "pickCorrectZip",
+			isFullLoad:          true,
+			expectedFileName:    "ppl_test_v1_full_5678.zip",
+			expectedPath:        "../fixtures/datafeeds/people/ppl_test/ppl_test_v1_full_5678.zip",
+			expectedSequence:    5678,
+			expectedFeedVersion: 1,
 		},
 		{
-			"Picks correct file for incremental load with daily and weekly files",
-			"../fixtures/datafeeds/people/ppl_test/ppl_pickCorrectZip",
-			nil,
-			"pickCorrectZip",
-			false,
-			nil,
-			"ppl_test_v1_9999.zip",
-			"../fixtures/datafeeds/people/ppl_test/ppl_test_v1_9999.zip",
-			9999,
-			1,
+			testName:            "Picks correct file for incremental load with daily and weekly files",
+			testDirectory:       "../fixtures/datafeeds/people/ppl_test/ppl_pickCorrectZip",
+			testPackage:         pkg,
+			fileSuffix:          "pickCorrectZip",
+			expectedFileName:    "ppl_test_v1_9999.zip",
+			expectedPath:        "../fixtures/datafeeds/people/ppl_test/ppl_test_v1_9999.zip",
+			expectedSequence:    9999,
+			expectedFeedVersion: 1,
+		},
+		{
+			testName:      "Picks correct file for full load with varied version",
+			testDirectory: "../fixtures/datafeeds/people/ppl_test/ppl_pickCorrectZip",
+			testPackage: Package{
+				Dataset:     pkg.Dataset,
+				FSPackage:   pkg.FSPackage,
+				FeedVersion: 2,
+				Bundle:      pkg.Bundle,
+				Product:     pkg.Product,
+			},
+			fileSuffix:          "pickCorrectZip",
+			isFullLoad:          true,
+			expectedFileName:    "ppl_test_v2_full_5670.zip",
+			expectedPath:        "../fixtures/datafeeds/people/ppl_test/ppl_test_v2_full_5670.zip",
+			expectedSequence:    5670,
+			expectedFeedVersion: 2,
 		},
 	}
 	for _, d := range testCases {
@@ -214,7 +221,7 @@ func Test_GetLatestFile(t *testing.T) {
 			} else {
 				assert.NoError(t, err, fmt.Sprintf("Test: %s failed, should read file with no error", d.testName))
 				fs := &Service{&MockSftpClient{files, d.readDirErr}, "", "../fixtures/datafeeds"}
-				fsFile, err := fs.GetLatestFile(pkg, d.isFullLoad)
+				fsFile, err := fs.GetLatestFile(d.testPackage, d.isFullLoad)
 				if d.fileSuffix == "emptyDir" || d.fileSuffix == "nestedDirectory" {
 					assert.Error(t, err, d.schemaErr, fmt.Sprintf("Test: %s failed, directory is empty/nested should should not read file", d.testName))
 					assert.Contains(t, err.Error(), d.schemaErr.Error(), fmt.Sprintf("Test: %s failed, mismatched error codes", d.testName))
@@ -238,7 +245,7 @@ func Test_GetLatestFile_EmptyDirectory(t *testing.T) {
 	fs := &Service{&MockSftpClient{files, nil}, "", "../fixtures/datafeeds"}
 	_, err = fs.GetLatestFile(pkg, true)
 	assert.Error(t, err, "Test failed, directory should be empty")
-	assert.Contains(t, err.Error(), "No data archives found in: ../fixtures/datafeeds/people/ppl_test", "Test failed, returned unexpected error")
+	assert.Contains(t, err.Error(), "no data archives found in: ../fixtures/datafeeds/people/ppl_test", "Test failed, returned unexpected error")
 	defer os.Remove(directory)
 }
 
@@ -252,11 +259,11 @@ func Test_GetLatestFile_NestedDirectory(t *testing.T) {
 	//Full load error
 	_, err = fs.GetLatestFile(pkg, true)
 	assert.Error(t, err, "Test failed, directory should be empty")
-	assert.Contains(t, err.Error(), "No valid Full files found in: ../fixtures/datafeeds/people/ppl_test", "Test failed, mismatched error codes")
+	assert.Contains(t, err.Error(), "no valid Full files found in: ../fixtures/datafeeds/people/ppl_test", "Test failed, mismatched error codes")
 	//Delta load error
 	_, err = fs.GetLatestFile(pkg, false)
 	assert.Error(t, err, "Test failed, directory should be empty")
-	assert.Contains(t, err.Error(), "No valid Delta files found in: ../fixtures/datafeeds/people/ppl_test", "Test failed, mismatched error codes")
+	assert.Contains(t, err.Error(), "no valid Delta files found in: ../fixtures/datafeeds/people/ppl_test", "Test failed, mismatched error codes")
 	defer os.RemoveAll(directory)
 }
 

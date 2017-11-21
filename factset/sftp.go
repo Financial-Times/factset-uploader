@@ -1,10 +1,12 @@
 package factset
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path"
 	"strconv"
+	"time"
 
 	"github.com/pkg/sftp"
 	log "github.com/sirupsen/logrus"
@@ -35,9 +37,18 @@ func newSFTPClient(user, key, address string, port int) (*sftpClient, error) {
 			Auth: []ssh.AuthMethod{
 				ssh.PublicKeys(signer),
 			},
+			Timeout:         0,
 			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		},
 	)
+
+	ticker := time.NewTicker(time.Second * 10)
+	go func() {
+		for f := range ticker.C {
+			tcpConn.SendRequest(fmt.Sprintf("keepalive%s@ft.com", f), true, nil)
+		}
+	}()
+
 	if err != nil {
 		log.WithError(err).Error("Could not establish tcp connection!")
 		return nil, err

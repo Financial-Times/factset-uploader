@@ -188,7 +188,7 @@ func (s *Service) doFullLoad(pkg factset.Package, currentLoadedFileMetadata fact
 	if currentLoadedFileMetadata.PackageVersion.FeedVersion == 0 ||
 		(currentLoadedFileMetadata.PackageVersion.FeedVersion == latestDataArchive.Version.FeedVersion && currentLoadedFileMetadata.PackageVersion.Sequence < latestDataArchive.Version.Sequence) {
 
-		//if err = s.db.DropTablesWithDataset(pkg.Dataset, pkg.Product); err != nil {
+		//if err = s.db.DropTablesWithProductAndBundle(pkg.Dataset, pkg.Product); err != nil {
 		//	return loadedVersions, err
 		//}
 
@@ -218,7 +218,7 @@ func (s *Service) doFullLoad(pkg factset.Package, currentLoadedFileMetadata fact
 				return loadedVersions, err
 			}
 
-			err = s.db.UpdateLoadedTableVersion(tableName, latestDataArchive.Version, pkg.Product)
+			err = s.db.UpdateLoadedTableVersion(tableName, latestDataArchive.Version, pkg)
 			if err != nil {
 				return loadedVersions, err
 			}
@@ -306,7 +306,7 @@ func copyFile(srcFile *zip.File, dest string) error {
 // Run new table creation script - ent_v1_table_generation_statements.sql
 func (s *Service) reloadSchema(pkg factset.Package, schemaVersion *factset.PackageVersion) error {
 	log.WithFields(log.Fields{"fs_product": pkg.Product}).Debugf("Reloading schema for package: %s", pkg.Product)
-	if err := s.db.DropTablesWithDataset(pkg.Dataset, pkg.Product); err != nil {
+	if err := s.db.DropTablesWithProductAndBundle(pkg.Product, pkg.Bundle); err != nil {
 		return err
 	}
 	schemaFileDetails := s.getSchemaDetails(pkg, schemaVersion)
@@ -327,7 +327,7 @@ func (s *Service) reloadSchema(pkg factset.Package, schemaVersion *factset.Packa
 				log.WithError(err).WithFields(log.Fields{"fs_product": pkg.Product}).Errorf("Could not read file: %s", file)
 				return err
 			}
-			err = s.db.CreateTablesFromSchema(fileContents, pkg.Product)
+			err = s.db.CreateTablesFromSchema(fileContents, pkg)
 			if err != nil {
 				return err
 			}

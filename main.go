@@ -74,7 +74,7 @@ func main() {
 	packages := app.String(cli.StringOpt{
 		Name:   "packages",
 		Value:  "",
-		Desc:   "List of packages to process (dataset,package,product,feedVersion) separated by a semicolon",
+		Desc:   "List of packages to process (dataset,package,product,bundle,feedVersion) separated by a semicolon",
 		EnvVar: "PACKAGES",
 	})
 
@@ -159,15 +159,16 @@ func convertConfig(configString string) (loader.Config, error) {
 	splitConfig := strings.Split(configString, ";")
 	for _, pkg := range splitConfig {
 		splitPkg := strings.Split(pkg, ",")
-		if len(splitPkg) != 4 {
+		if len(splitPkg) != 5 {
 			return loader.Config{}, errors.New("package config is incorrectly configured; it has the wrong number of values. See readme for instructions")
 		}
 
-		version, _ := strconv.Atoi(splitPkg[3])
+		version, _ := strconv.Atoi(splitPkg[4])
 		config.AddPackage(factset.Package{
 			Dataset:     splitPkg[0],
 			FSPackage:   splitPkg[1],
 			Product:     splitPkg[2],
+			Bundle:      splitPkg[3],
 			FeedVersion: version,
 		})
 	}

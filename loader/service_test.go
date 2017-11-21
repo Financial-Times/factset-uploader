@@ -60,6 +60,7 @@ var standardPkg = factset.Package{
 	Dataset:     "ppl",
 	FSPackage:   "people",
 	Product:     "ppl_test",
+	Bundle:      "ppl_test",
 	FeedVersion: 1,
 }
 

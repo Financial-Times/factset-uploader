@@ -24,31 +24,38 @@ Currently there are several categories of files from factset that are of interes
 1. Entity information that is used for our organisation information
 2. People information that is used for our people and membership information
 3. Reference information to provide on things such as controlled vocabulary i.e Role names
-4. Symbology information to provide other indentifiers such as the financial instruments
+4. Symbology information to provide other identifiers such as the financial instruments
 5. Fundamental information to provide information on the financials for entities
 
 ### Structure
-All configured packages should be separated by a ';' with each distinct package composed of four distinct parts separated by ',':
 
-        Dataset,FSPackage,Product,Version;...
+All configured packages should be separated by a `;` with each distinct package composed of five distinct parts separated by `,` :
+
+```
+Dataset,FSPackage,Product,Bundle,Version;...
+```
         
-        for example
+for example: for the package ` /datafeeds/fundamentals/ff_advanced_ap_v3/ff_advanced_der_ap_v3_full_1234.zip`
         
-        ppl,people,ppl_premium,1;...
+```
+ff,fundamentals,ff_advanced_ap_v3,ff_advanced_der_ap,3;...
+```
 
 ## Installation
+
 Download the source code, dependencies and test dependencies:
 
-        go get -u github.com/kardianos/govendor
-        go get -u github.com/Financial-Times/factset-uploader
-        cd $GOPATH/src/github.com/Financial-Times/factset-uploader
-        govendor sync
-        go build .
+```shell
+go get -u github.com/kardianos/govendor
+go get -u github.com/Financial-Times/factset-uploader
+cd $GOPATH/src/github.com/Financial-Times/factset-uploader
+govendor sync
+go build .
+```
 
 ## Running locally
-_How can I run it_
 
-_TODO: How do we run this locally with the whitelist on the Factset side, tunnel?_
+This needs to be deployed to be able to connect to the the Factset SFTP which has white listed ip addresses
 
 1. Install MySql
     brew info mysql56
@@ -90,23 +97,19 @@ _TODO: How do we run this locally with the whitelist on the Factset side, tunnel
 
 Options:
 
-        --app-system-code="factset-uploader"   System Code of the application ($APP_SYSTEM_CODE)
+        --app-system-code="factset-uploader"        System Code of the application ($APP_SYSTEM_CODE)
         --app-name="factset-uploader"               Application name ($APP_NAME)
-        --awsAccessKey=xxx
-        --awsSecretKey=xxx
-        --bucketName=com.ft.coco-factset-data
+        --log-level=info
         --factsetUser=xxx
         --factsetKey=xxx
         --factsetFTP=fts-sftp.factset.com
         --factsetPort=6671
-        --log-level=info
-        --resources=/directory/without/version:zip_or_txt_file_to_download
+        --packages=Dataset,FSPackage,Product,Bundle,Version;...
+        --rds_dsn=<db_username>:<db_password>@tcp(<rds_url)/<database_name>     Details of the Aurora DB
 
 The resources argument specifies a comma separated list of archives and files within that archive to be downloaded from Factset FTP server.
         
 3. Test:
-
-    1. _How should we run this locally_
 
 ## Build and deployment
 * Built by Docker Hub on merge to master: [coco/factset-uploader](https://hub.docker.com/r/coco/factset-uploader/)
