@@ -142,7 +142,7 @@ func (c *Client) UpdateLoadedPackageVersion(packageMetadata *factset.PackageMeta
 
 func (c *Client) LoadTable(filename, table string) error {
 	queryTemplate := `LOAD DATA LOCAL INFILE '%s' REPLACE INTO TABLE %s FIELDS TERMINATED BY '|'
-	OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 LINES;`
+	OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\r\n' IGNORE 1 LINES;`
 
 	_, err := c.DB.Exec(fmt.Sprintf(queryTemplate, filename, table))
 	return err
