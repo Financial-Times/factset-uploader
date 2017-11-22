@@ -114,7 +114,7 @@ func main() {
 
 	app.Action = func() {
 		if *isRunning == false {
-			log.Fatal("isRunning flag set to false, set to true and restart application if you are sure you want to load data")
+			log.Error("isRunning flag set to false, set to true and restart application if you are sure you want to load data")
 			return
 		}
 		splitConfig := strings.Split(*workspace, "/")
