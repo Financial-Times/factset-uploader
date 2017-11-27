@@ -6,7 +6,7 @@ service:
   hasHealthcheck: "true"
   packages: "" # The packages of the service, should be defined in the specific app-configs folder.
   rds_dsn_secret: "" # The secret key to use as the RDS DSN, should be defined in the specific app-configs folder.
-replicaCount: 1
+replicaCount: 0
 image:
   repository: coco/factset-uploader
   pullPolicy: IfNotPresent
