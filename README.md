@@ -1,3 +1,5 @@
+DECOMISSIONED Using Factsets own ![data loader](https://www.factset.com/download/datafeedloader) instead
+
 # Factset Uploader (factset-uploader)
 
 [![Circle CI](https://circleci.com/gh/Financial-Times/factset-uploader/tree/master.png?style=shield)](https://circleci.com/gh/Financial-Times/factset-uploader/tree/master)
